@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Kobold</title>
+    <meta name="description" content="A Dungeons and Dragons Tool">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="icon.png">
+    <link href="style.css" rel="stylesheet" type="text/css">
+
+    <!-- google font families -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Emoji:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=JetBrains Mono" rel="stylesheet">
+</head>
+
+<body oncontextmenu="return false;">
+    <!-- The custom context menu, which follows the mouse -->
+    <div id="contextMenu" class="hidden">
+        <button class="contextMenuButton">Button 1</button>
+        <button class="contextMenuButton">do something I think</button>
+        <button class="contextMenuButton">random option</button>
+        <button class="contextMenuButton">self destructus</button>
+    </div>
+    <!-- The dynamic character object sheet menu -->
+    <div id="characterSheetMenu" class="menu">
+        <!-- The pullup menu, which shows character options when hovered -->
+        <div id="characterSheetPullup" class="menuHolder">
+            <h1 class="centerFlexAlign characterSheetBarHeader">🛠 Options 🛠</h1>
+            <button id="exitCharacterSheet" class="characterSheetPullupButton">Exit</button>
+            <button id="importCharacterSheet" class="characterSheetPullupButton">Import</button>
+            <button id="exportCharacterSheet" class="characterSheetPullupButton">Export</button>
+            <button id="saveCharacterSheet" class="characterSheetPullupButton">Save</button>
+        </div>
+        <!-- The name, owner, and sheet visibility input and select elements -->
+        <p id="characterNameInputIcon" class="characterTopInputIcon centerFlexAlign">✎</p>
+        <input id="characterNameInput" class="characterTopInput" placeholder="Character Name">
+        <p id="characterOwnerInputIcon" class="characterTopInputIcon centerFlexAlign menuHolder">🜲</p>
+        <input id="characterOwnerInput" class="characterTopInput menuHolder" placeholder="Owner">
+        <p id="characterVisibilityInputIcon" class="characterTopInputIcon centerFlexAlign menuHolder">👁</p>
+        <div class="customSelectObject characterTopInput menuHolder" id="characterVisibilityInput"><select>
+            <option>Public</option>
+            <option selected>Private</option>
+            <option>Hidden</option>
+        </select></div>
+
+        <!-- The info boxes, the little rectangles holding HP, AC, speed, and other useful things-->
+        <div id="characterHealthInfobox" class="characterInfobox">
+            <p class="characterInfoboxToptext">♥ Hit Points ♥</p>
+            <input id="characterHealthField" class="characterInfoboxField" value="25" placeholder="0">
+            <p id="characterHealthBottomtext" class="characterInfoboxBottomtext">Max: 50</p>
+        </div>
+        <div id="characterHitdiceInfobox" class="characterInfobox">
+            <p class="characterInfoboxToptext">+ Hit Dice +</p>
+            <div id="characterHitdiceField" class="characterInfoboxField centerFlexAlign">4 + 2</div>
+            <p id="characterHitdiceBottomtext" class="characterInfoboxBottomtext">4d12 + 2d8</p>
+        </div>
+        <div id="characterACInfobox" class="characterInfobox">
+            <p class="characterInfoboxToptext">⛨ AC ⛨</p>
+            <div id="characterACField" class="characterInfoboxField centerFlexAlign">18</div>
+            <p id="characterACBottomtext" class="characterInfoboxBottomtext">Base: 17</p>
+        </div>
+        <div id="characterInitiativeInfobox" class="characterInfobox">
+            <p class="characterInfoboxToptext">⚔ Initiative ⚔</p>
+            <div id="characterInitiativeField" class="characterInfoboxField centerFlexAlign">+8</div>
+            <p id="characterInitiativeBottomtext" class="characterInfoboxBottomtext">2nd In Order</p>
+        </div>
+        <div id="characterSpeedInfobox" class="characterInfobox">
+            <p class="characterInfoboxToptext">🗲 Speed 🗲</p>
+            <div id="characterSpeedField" class="characterInfoboxField centerFlexAlign">25ft/50ft</div>
+            <p id="characterSpeedBottomtext" class="characterInfoboxBottomtext">Walk/Fly</p>
+        </div>
+        <div id="characterProficiencyInfobox" class="characterInfobox">
+            <p class="characterInfoboxToptext">🕮 Proficiency Bonus 🕮</p>
+            <div id="characterProficiencyField" class="characterInfoboxField centerFlexAlign">+3</div>
+            <p id="characterProficiencyBottomtext" class="characterInfoboxBottomtext">Level 6</p>
+        </div>
+
+        <!-- The ability sidebar, holding modifiers for saves, raw stats, and skills  -->
+        <div id="characterAbilitySidebar" class="menuHolder">
+            <!-- Abilities -->
+            <h1 class="centerFlexAlign characterSheetBarHeader">⚄ Abilities ⚄</h1>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Acrobatics <span class="subscript">(Dex)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Animal Handling <span class="subscript">(Wis)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Arcana <span class="subscript">(Int)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Athletics<span class="subscript">(Str)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Deception<span class="subscript">(Cha)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">History<span class="subscript">(Int)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Insight<span class="subscript">(Wis)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Intimidation<span class="subscript">(Cha)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Investigation<span class="subscript">(Int)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Medicine<span class="subscript">(Wis)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Nature<span class="subscript">(Int)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Perception<span class="subscript">(Wis)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Performance<span class="subscript">(Cha)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Persuasion<span class="subscript">(Cha)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Religion<span class="subscript">(Int)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Sleight of Hand<span class="subscript">(Dex)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Stealth<span class="subscript">(Dex)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Survival<span class="subscript">(Wis)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <!-- Saving Throws -->
+            <h1 class="centerFlexAlign characterSheetBarHeader">⟁ Saving Throws ⟁</h1>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Strength</p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Dexterity</p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Constitution</p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Intelligence</p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Wisdom</p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Charisma</p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <!-- Base Characteristics -->
+            <h1 class="centerFlexAlign characterSheetBarHeader">✰ Characteristics ✰</h1>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Strength<span class="subscript">(16)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Dexterity<span class="subscript">(16)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Constitution<span class="subscript">(16)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Intelligence<span class="subscript">(16)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Wisdom<span class="subscript">(16)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+            <div class="characterAbilitySidebarHolder">
+                <p class="characterAbilitySidebarText">Charisma<span class="subscript">(16)</span></p>
+                <p class="characterAbilityDiceModifier centerFlexAlign">+3</p>
+            </div>
+        </div>
+        <!-- The subsection tabs, which when clicked open the various pages below -->
+        <div class="characterSubsectionTab centerFlexAlign characterSheetBarHeader menuHolder selectedSubsectionTab" id="characterInventoryTab">
+            <span class="emojiFont">📦</span>&nbsp;Inventory&nbsp;<span class="emojiFont">📦</span>
+        </div>
+        <div class="characterSubsectionTab centerFlexAlign characterSheetBarHeader menuHolder" id="characterActionsTab">
+            <span class="emojiFont">💥</span>&nbsp;Actions&nbsp;<span class="emojiFont">💥</span>
+        </div>
+        <div class="characterSubsectionTab centerFlexAlign characterSheetBarHeader menuHolder" id="characterTraitsTab">
+            <span class="emojiFont">✪</span>&nbsp;Traits&nbsp;<span class="emojiFont">✪</span>
+        </div>
+        <div class="characterSubsectionTab centerFlexAlign characterSheetBarHeader menuHolder" id="characterClassesTab">
+            <span class="emojiFont">🏹</span>&nbsp;Classes&nbsp;<span class="emojiFont">🏹</span>
+        </div>
+
+        <!-- The inventory subpage, dealing with managing everything a character is holding or carrying -->
+        <div id="characterInventoryPage">
+            <!-- The various buttons and headers for the inventory -->
+            <!-- The actual inventory list, with clickable items -->
+            <div id="characterInventoryMainPanel">
+                <div class="characterInventoryMainSelector characterInventoryMainSelectorHeader">
+                    <p class="emojiFont characterInventoryMainSelectorIcon">?</p>
+                    <p class="characterInventoryMainSelectorName">Item Name</p>
+                    <p class="characterInventoryMainSelectorQuantity">Quantity</p>
+                    <p class="characterInventoryMainSelectorWeight">Weight</p>
+                </div>
+            </div>
+            <!-- The description panel, showing an overview of the things you click on -->
+            <div id="characterInventoryDescriptionPanel">
+                <h1 id="characterInventoryDescriptionPanelTitle" class="characterInventoryDescriptionPanelObject">No Items Selected</h1>
+            </div>
+        </div>
+    </div>
+
+    <!-- The main game canvas -->
+
+    <!-- The popup menu, which displays various alerts and notifications while using the app -->
+    <div id="popupMenu" style="display:none">
+        <h1 id="popupMenuHeader" class="centerFlexAlign"></h1>
+        <p id="popupMenuDescription" class="customScrollBar"></p>
+        <button id="popupMenuSingleButton" class="popupMenuButton">Single Button</button>
+        <button id="popupMenuLeftDoubleButton" class="popupMenuButton">Confirm</button>
+        <button id="popupMenuRightDoubleButton" class="popupMenuButton">Cancel</button>
+    </div>
+</body>
+<script src="pageListeners.js" type="module"></script>
+<script src="index.js" type="module"></script>
+<script src="characterProcessor.js" type="module"></script>
+</html>

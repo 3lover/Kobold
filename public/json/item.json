@@ -1,0 +1,10 @@
+{
+    "name": "Default Name",
+    "icon": "?",
+    "quantity": 1,
+    "weight": 0,
+    "description": "Default description.",
+    "basePrice": -1,
+    "traits": [],
+    "abilities": []
+}

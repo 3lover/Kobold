@@ -1,0 +1,10 @@
+{
+    "client": {
+        "connected": 0,
+        "infoPacket": 1,
+        "checkConnection": 2
+    },
+    "server": {
+        "confirmConnection": 0
+    }
+}

@@ -1,0 +1,671 @@
+:root {
+    --black: #000000;
+    --veryDarkGrey: #333333;
+    --darkGrey: #555555;
+    --grey: #888888;
+    --lightGrey: #aaaaaa;
+    --veryLightGrey: #dddddd;
+    --white: #ffffff;
+
+    --red: #ff0000;
+    --lightRed: #fa5f5f;
+    --veryLightRed: #ffb8b8;
+    --darkRed: #a80000;
+    --veryDarkRed: #690000;
+    --greyRed: #825b5b;
+
+    --orange: #ff8800;
+    --lightOrange: #ffb663;
+    --veryLightOrange: #ffdeb8;
+    --darkOrange: #c26700;
+    --veryDarkOrange: #7a4100;
+    --greyOrange: #755a3b;
+
+    --yellow: #ffff00;
+    --lightYellow: #ffff6e;
+    --veryLightYellow: #ffffc9;
+    --darkYellow: #a6a600;
+    --veryDarkYellow: #636300;
+    --greyYellow: #8c8c58;
+
+    --green: #00ff00;
+    --lightGreen: #59ff59;
+    --veryLightGreen: #b8ffb8;
+    --darkGreen: #00ab00;
+    --veryDarkGreen: #005200;
+    --greyGreen: #608f60;
+
+    --cyan: #00ffff;
+    --lightCyan: #6bffff;
+    --veryLightCyan: #baffff;
+    --darkCyan: #00b0b0;
+    --veryDarkCyan: #005c5c;
+    --greyCyan: #4f7878;
+
+    --blue: #0000ff;
+    --lightBlue: #5c5cff;
+    --veryLightBlue: #c2d9ff;
+    --darkBlue: #0047ba;
+    --veryDarkBlue: #002259;
+    --greyBlue: #4b5d7a;
+
+    --purple: #8800ff;
+    --lightPurple: #ad4fff;
+    --veryLightPurple: #deb8ff;
+    --darkPurple: #54009e;
+    --veryDarkPurple: #2e0057;
+    --greyPurple: #574369;
+
+    --pink: #ff00ff;
+    --lightPink: #ff6bff;
+    --veryLightPink: #ffb8ff;
+    --darkPink: #bd00bd;
+    --veryDarkPink: #630063;
+    --greyPink: #784a78;
+}
+
+@font-face {
+    font-family: 'Jetbrains Mono';
+    src: url('https://fonts.googleapis.com/css?family=JetBrains Mono');
+}
+
+* {
+    position: absolute;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+    font-family: "JetBrains Mono", sans-serif;
+    box-shadow: none;
+    appearance: none;
+    border: 0;
+    outline: 0;
+    transition: 0.2s;
+    color: var(--white);
+}
+::-moz-selection {
+    color: var(--white);
+    background: var(--veryDarkRed);
+}
+::selection {
+    color: var(--white);
+    background: var(--veryDarkRed);
+}
+
+body {
+    position: static;
+}
+
+div {
+    background-color: var(--black);
+}
+
+/* Flex align, for centering text in a div */
+.centerFlexAlign {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* The emoji font, useful for spans and icons */
+.emojiFont {
+    font-family: 'Noto Emoji', sans-serif;
+    position: relative;
+}
+
+/* Text stylings */
+.bold {
+    font-weight: bold;
+}
+
+.italic {
+    font-style: italic;
+}
+
+.subscript {
+    font-size: 1.5vmin;
+    color: var(--veryLightGrey);
+    position: relative;
+}
+
+/* The custom context menu, which follows the mouse and is show and frozen on right click */
+#contextMenu {
+    background-color: var(--grey);
+    height: auto;
+    width: auto;
+    position: absolute;
+    z-index: 9999999;
+    transition: 0s;
+}
+
+.contextMenuButton {
+    background-color: var(--grey);
+    position: relative;
+    font-size: 2vh;
+    height: 5vh;
+    width: max-content;
+    min-width: 100%;
+    padding: 0 1vmin 0 1vmin;
+}
+.contextMenuButton:hover {
+    background-color: var(--lightGrey);
+}
+.contextMenuButton:active {
+    background-color: var(--darkGrey);
+}
+
+/* A class to make objects hidden */
+.hidden {
+    display: none;
+}
+
+/* Custom scroll bars exist for scrollable elements */
+::-webkit-scrollbar {
+    width: 1vmin;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--darkGrey); 
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--veryLightGrey);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--grey); 
+}
+
+/* Custom select menu specifications */
+.customSelectObject {
+    left: 80vw;
+    top: 2vh;
+    overflow: visible;
+}
+
+.customSelectObject select {
+    display: none;
+}
+
+.customSelectObject-selected {
+    background-color: transparent;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.customSelectObject-items div,.customSelectObject-selected {
+    position: relative;
+    color: var(--white);
+    padding-left: 1vmin;
+    cursor: pointer;
+    background-color: var(--darkGrey);
+}
+.customSelectObject-items div:hover,.customSelectObject-selected:hover {
+    background-color: var(--veryDarkGrey);
+}
+
+.customSelectObject-items {
+    position: absolute;
+    top: 100%;
+    width: 100%;
+    left: 0;
+    z-index: 9999;
+}
+
+.customSelectObject-hide {
+    display: none;
+}
+
+.customSelectObject-items div:hover, .same-as-customSelectObject {
+    background-color: var(--veryDarkGrey);
+}
+
+/* Menus are full page holder elements */
+.menu {
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    background-color: var(--black);
+}
+
+/* Menu Holders hold various text, buttons, and other dohickies */
+.menuHolder {
+    background-color: var(--darkGrey);
+    color: var(--white);
+}
+
+.menuHolder:hover {
+    background-color: var(--veryDarkGrey);
+}
+
+/* The dropdown menu with the export, import, save, and cancel buttons */
+#characterSheetPullup {
+    top: 94vh;
+    left: 2vw;
+    height: 40vh;
+    width: 20vw;
+    z-index: 3;
+}
+
+#characterSheetPullup:hover {
+    top: 60vh;
+}
+
+/* The buttons (and header) contained in the character creation dropdown */
+.characterSheetBarHeader {
+    position: relative;
+    font-size: 3vmin;
+    text-align: center;
+    width: 20vw;
+    height: 6vh;
+}
+
+.characterSheetPullupButton {
+    width: 16vw;
+    height: 6vh;
+    font-size: 3vmin;
+}
+.characterSheetPullupButton:active {
+    transform: scale(110%);
+}
+
+#exitCharacterSheet {
+    top: 8vh;
+    left: 2vw;
+    background-color: var(--darkRed);
+}
+#exitCharacterSheet:hover {
+    background-color: var(--red);
+}
+
+#importCharacterSheet {
+    top: 16vh;
+    left: 2vw;
+    background-color: var(--darkOrange);
+}
+#importCharacterSheet:hover {
+    background-color: var(--orange);
+}
+
+#exportCharacterSheet {
+    top: 24vh;
+    left: 2vw;
+    background-color: var(--darkBlue);
+}
+#exportCharacterSheet:hover {
+    background-color: var(--blue);
+}
+
+#saveCharacterSheet {
+    top: 32vh;
+    left: 2vw;
+    background-color: var(--veryDarkGreen);
+}
+#saveCharacterSheet:hover {
+    background-color: var(--darkGreen);
+}
+
+/* The ability menu */
+#characterAbilitySidebar {
+    top: 2vh;
+    left: 2vw;
+    height: 90vh;
+    width: 20vw;
+    overflow-y: scroll;
+}
+
+/* The text for various abilities in the ability menu (ex- acrobatics) */
+.characterAbilitySidebarHolder {
+    position: relative;
+    width: 20vw;
+    height: 3vh;
+    background-color: var(--darkGrey);
+}
+.characterAbilitySidebarHolder:hover {
+    background-color: var(--grey);
+}
+
+.characterAbilitySidebarText {
+    font-size: 2vmin;
+    text-align: left;
+}
+
+.characterAbilityDiceModifier {
+    background-color: var(--grey);
+    position: absolute;
+    text-align: left;
+    left: calc(15vw + 1vmin);
+    top: 0;
+    width: 4vw;
+    height: 3vh;
+}
+.characterAbilitySidebarHolder:hover .characterAbilityDiceModifier {
+    background-color: var(--lightGrey);
+    color: var(--black);
+}
+
+/* The input bar for holding the name of monster/character sheet */
+.characterTopInputIcon {
+    top: 2vh;
+    height: 6vh;
+    width: 4vw;
+    font-size: 3vmin;
+}
+.characterTopInput {
+    top: 2vh;
+    height: 6vh;
+    font-size: 3vmin;
+    padding-left: 1vmin;
+}
+
+#characterNameInputIcon {
+    left: 24vw;
+    background-color: var(--veryLightGrey);
+    color: var(--black);
+}
+#characterNameInput {
+    left: 28vw;
+    width: 20vw;
+    background-color: var(--veryLightGrey);
+    color: var(--black);
+}
+#characterNameInput:hover {
+    background-color: var(--lightGrey);
+}
+
+#characterOwnerInputIcon {
+    left: 50vw;
+    background-color: var(--darkGrey);
+}
+#characterOwnerInput {
+    left: 54vw;
+    width: 20vw;
+}
+
+#characterVisibilityInputIcon {
+    left: 76vw;
+    background-color: var(--darkGrey);
+}
+#characterVisibilityInput {
+    left: 80vw;
+    width: 18vw;
+    padding: 0;
+}
+
+/* The holder for the infoboxes directly under the ownership bars */
+.characterInfobox {
+    top: 10vh;
+    height: 12vh;
+    width: 10vw;
+    text-align: center;
+}
+.characterInfobox:hover {
+    background-color: var(--veryDarkGrey);
+}
+
+#characterHealthInfobox {
+    left: 24vw;
+}
+#characterHitdiceInfobox {
+    left: 36.8vw;
+}
+#characterACInfobox {
+    left: 49.6vw;
+}
+#characterInitiativeInfobox {
+    left: 62.4vw;
+}
+#characterSpeedInfobox {
+    left: 75.2vw;
+}
+#characterProficiencyInfobox {
+    left: 88vw;
+}
+
+/* The components inside of infoboxes */
+.characterInfoboxToptext {
+    height: 3vh;
+    width: 100%;
+    font-size: 2vmin;
+}
+
+.characterInfoboxField {
+    top: 3vh;
+    height: 6vh;
+    left: 0;
+    width: 100%;
+    background-color: var(--veryDarkGrey);
+    text-align: center;
+    font-size: 3vmin;
+}
+.characterInfobox:hover .characterInfoboxField {
+    background-color: var(--darkGrey);
+}
+
+.characterInfoboxBottomtext {
+    top: 9vh;
+    height: 3vh;
+    width: 100%;
+    font-size: 2vmin;
+}
+
+/* The section selector tabs on the bottom of the page */
+.characterSubsectionTab {
+    position: absolute;
+    top: 94vh;
+    width: 17vw;
+    height: 6vh;
+}
+
+.selectedSubsectionTab {
+    background-color: var(--darkRed);
+}
+.selectedSubsectionTab:hover {
+    background-color: var(--veryDarkRed);
+}
+
+#characterInventoryTab {
+    left: 24vw;
+}
+#characterActionsTab {
+    left: 43vw;
+}
+#characterTraitsTab {
+    left: 62vw;
+}
+#characterClassesTab {
+    left: 81vw;
+}
+
+/* The character page, and the inventory list panels */
+#characterInventoryPage {
+    top: 24vh;
+    left: 24vw;
+    height: 68vh;
+    width: 74vw;
+    background-color: transparent;
+}
+
+#characterInventoryMainPanel {
+    top: 8vh;
+    height: 60vh;
+    width: 40vw;
+    background-color: var(--darkGrey);
+    overflow-y: scroll;
+}
+#characterInventoryMainPanel:hover {
+    background-color: var(--veryDarkGrey);
+}
+
+#characterInventoryDescriptionPanel {
+    top: 8vh;
+    height: 60vh;
+    left: 42vw;
+    width: 32vw;
+    background-color: var(--darkGrey);
+    overflow-y: scroll;
+}
+/* The buttons for the inventory menu */
+
+
+/* The selector classes for the tabs inside of the inventory menus */
+.characterInventoryMainSelector {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 40vw;
+    height: max-content;
+    font-size: 2vmin;
+    background-color: var(--darkGrey);
+}
+.characterInventoryMainSelector:hover {
+    background-color: var(--grey);
+}
+
+.characterInventoryMainSelectorHeader {
+    background-color: var(--veryDarkGrey);
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+.characterInventoryMainSelectorHeader:hover {
+    background-color: var(--veryDarkGrey);
+}
+
+.characterInventoryMainSelectorSelected {
+    background-color: var(--darkRed);
+}
+.characterInventoryMainSelectorSelected:hover {
+    background-color: var(--veryDarkRed);
+}
+
+.characterInventoryMainSelectorIcon {
+    width: 5vw;
+    text-align: center;
+}
+.characterInventoryMainSelectorName {
+    position: relative;
+    width: 19vw;
+}
+.characterInventoryMainSelectorQuantity {
+    left: 24vw;
+    width: 8vw;
+    text-align: center;
+}
+.characterInventoryMainSelectorWeight {
+    left: 32vw;
+    width: 8vw;
+    text-align: center;
+}
+
+/* The secondary info box on their  */
+.characterInventoryDescriptionPanelObject {
+    position: relative;
+    width: 100%;
+}
+
+#characterInventoryDescriptionPanelTitle {
+    font-size: 3vmin;
+    background-color: var(--veryDarkGrey);
+    padding: 1vmin;
+}
+
+.characterInventoryDescriptionPanelProperty {
+    font-size: 2vmin;
+    background-color: var(--darkGrey);
+    padding: 1vmin;
+}
+.characterInventoryDescriptionPanelProperty:active {
+    background-color: var(--grey);
+}
+
+.characterInventoryDescriptionPanelHeader {
+    font-size: 2vmin;
+    padding-left: 1vmin;
+    background-color: var(--veryDarkGrey);
+}
+
+/* The popup menu can be called, and appears during alerts, confirmations, and notifications */
+#popupMenu {
+    width: 50vw;
+    height: 50vh;
+    top: 25vh;
+    left: 25vw;
+    background-color: var(--veryDarkGrey);
+    z-index: 100;
+}
+
+/* The popup menu's title text */
+#popupMenuHeader {
+    font-size: 4vmin;
+    color: var(--white);
+    width: 50vw;
+    height: 12vh;
+    background-color: var(--darkGrey);
+    text-align: center;
+    z-index: 3;
+}
+
+/* The popup menu's title text */
+#popupMenuDescription {
+    font-size: 3vmin;
+    color: var(--white);
+    width: 40vw;
+    height: 28vh;
+    top: 12vh;
+    left: 5vw;
+    border: solid 0.5vmin var(--lightGrey);
+    border-top: 0;
+    padding: 2vmin;
+    background-color: var(--veryDarkGrey);
+    text-align: left;
+    z-index: 2;
+    overflow-y: scroll;
+}
+
+/* The popup menu can either have one confirmation button, or two confirm/deny buttons, outlined below */
+.popupMenuButton {
+    background-color: var(--grey);
+}
+.popupMenuButton:hover {
+    background-color: var(--darkGrey);
+}
+.popupMenuButton:active {
+    background-color: var(--lightGrey);
+}
+
+#popupMenuSingleButton {
+    font-size: 4vmin;
+    color: var(--white);
+    width: 40vw;
+    height: 8vh;
+    top: 40vh;
+    left: 5vw;
+    text-align: center;
+    z-index: 3;
+}
+
+#popupMenuLeftDoubleButton {
+    font-size: 4vmin;
+    color: var(--white);
+    width: 18vw;
+    height: 8vh;
+    top: 40vh;
+    left: 5vw;
+    text-align: center;
+    z-index: 3;
+}
+
+#popupMenuRightDoubleButton {
+    font-size: 4vmin;
+    color: var(--white);
+    width: 18vw;
+    height: 8vh;
+    top: 40vh;
+    left: 27vw;
+    text-align: center;
+    z-index: 3;
+}

@@ -1,0 +1,40 @@
+{
+    "metadata": {
+        "characterName": "",
+        "playerName": "",
+        "alignment": "",
+        "appearance": {
+            "eyes": "",
+            "hair": "",
+            "skin": "",
+            "height": 100,
+            "weight": 100,
+            "age": 100,
+            "other": ""
+        },
+        "allies": [],
+        "organizations": [],
+        "religions": [],
+        "backstory": ""
+    },
+    "classes": [{"id": 0, "lvl": 5, "mods": [0, 1, 1, 0, 0, 0]}],
+    "background": 0,
+    "race": 0,
+    "baseCharacteristics": {
+        "str": 1,
+        "dex": 4,
+        "con": 8,
+        "int": 10,
+        "wis": 15,
+        "cha": 20
+    },
+    "equipment": [],
+    "gold": 107,
+    "status": {
+        "health": 50,
+        "maxHealth": 100,
+        "tempHealth": 10,
+        "hitDice": 5
+    },
+    "proficiencies": []
+}

@@ -23,7 +23,6 @@ export function processCharacter(j) {
     for (let i = 0; i < 6; i++) {
         data.characteristicMods[i] = Math.floor((data.baseCharacteristics[i] - 10) / 2);
     }
-    console.log(data);
 }
 
 async function fetchProtocol() {

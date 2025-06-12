@@ -7,6 +7,13 @@ export const doc = {
     characterInventoryMainPanel: document.getElementById("characterInventoryMainPanel"),
     characterInventoryDescriptionPanel: document.getElementById("characterInventoryDescriptionPanel"),
     characterInventoryDescriptionPanelTitle: document.getElementById("characterInventoryDescriptionPanelTitle"),
+    popupMenu: document.getElementById("popupMenu"),
+    popupMenuHeader: document.getElementById("popupMenuHeader"),
+    popupMenuDescription: document.getElementById("popupMenuDescription"),
+    popupMenuSingleButton: document.getElementById("popupMenuSingleButton"),
+    popupMenuLeftDoubleButton: document.getElementById("popupMenuLeftDoubleButton"),
+    popupMenuRightDoubleButton: document.getElementById("popupMenuRightDoubleButton"),
+    popupMenuInput: document.getElementById("popupMenuInput")
 }
 
 //_ custom select menu code
@@ -98,11 +105,73 @@ doc.contextMenu.addEventListener("mouseleave", function(e) {
     doc.contextMenu.classList.add("hidden");
 });
 
+// if an "add modifier" button is pressed on the characteristics page, add a modifier slot
+let modButtons = [
+    document.getElementById("classesStrengthModBtn"), document.getElementById("classesStrengthCharacteristicsBox")
+];
+for (let i = 0; i < modButtons.length; i += 2) modButtons[i].addEventListener("click", function(e) {
+    createPopup(
+        "Create Modifier", "Please select a name for this modifier. To delete it later, right click it.", 1,
+        "Cancel", function(e) {return true},
+        "Submit", function(e) {
+            let modifierText = document.createElement("p");
+            modifierText.classList.add("characterClassPanelCharacteristicBoxText", "centerFlexAlign");
+            modifierText.innerText = doc.popupMenuInput.value;
+            modButtons[i + 1].appendChild(modifierText);
+            let modifierTab = document.createElement("input");
+            modifierTab.classList.add("characterClassPanelCharacteristicBoxField");
+            modButtons[i + 1].appendChild(modifierTab);
+            return true;
+        }
+    );
+});
+
 // when a section tab is pressed in the character creation menu, hide all other pages
-let characterSubsectionTabs = document.getElementsByClassName("characterSubsectionTab");
+let characterSubsectionTabs = [
+    document.getElementById("characterInventoryTab"),
+    document.getElementById("characterActionsTab"),
+    document.getElementById("characterStatusTab"),
+    document.getElementById("characterClassesTab"),
+];
+let characterSubsectionIds = [
+    document.getElementById("characterInventoryPage"),
+    document.getElementById("characterActionsPage"),
+    document.getElementById("characterStatusPage"),
+    document.getElementById("characterClassesPage"),
+];
 for (let tab of characterSubsectionTabs) tab.addEventListener("click", function(e) {
-    for (let t of characterSubsectionTabs) t.classList.remove("selectedSubsectionTab");
-    e.target.classList.add("selectedSubsectionTab");
+    for (let i = 0; i < characterSubsectionTabs.length; i++) {
+        characterSubsectionTabs[i].classList.remove("selectedSubsectionTab");
+        characterSubsectionIds[i].classList.add("hidden");
+        if (characterSubsectionTabs[i] === tab) {
+            characterSubsectionIds[i].classList.remove("hidden");
+            tab.classList.add("selectedSubsectionTab");
+        }
+    }
+});
+
+// a similar thing, except for the subsection tabs under the classes category
+let classesSubsectionTabs = [
+    document.getElementById("characterClassesClassButton"),
+    document.getElementById("characterClassesRaceButton"),
+    document.getElementById("characterClassesBackgroundButton"),
+    document.getElementById("characterClassesCharacteristicsButton"),
+];
+let classesSubsectionIds = [
+    document.getElementById("characterClassesClassSubpanel"),
+    document.getElementById("characterClassesRaceSubpanel"),
+    document.getElementById("characterClassesBackgroundSubpanel"),
+    document.getElementById("characterClassesCharacteristicsSubpanel"),
+];
+for (let tab of classesSubsectionTabs) tab.addEventListener("click", function(e) {
+    for (let i = 0; i < classesSubsectionTabs.length; i++) {
+        classesSubsectionTabs[i].classList.remove("selectedCharacterClassesButton");
+        classesSubsectionIds[i].classList.add("hidden");
+        if (classesSubsectionTabs[i] === tab) {
+            classesSubsectionIds[i].classList.remove("hidden");
+            tab.classList.add("selectedCharacterClassesButton");
+        }
+    }
 });
 
 // extracts the entries and creates text objects for them
@@ -220,6 +289,66 @@ function updateInventory(items = []) {
         });
 
         doc.characterInventoryMainPanel.appendChild(selector);
+    }
+}
+
+// creates a popup menu based on the specifications
+function createPopup(title, description, type, button1, callback1, button2, callback2) {
+    doc.popupMenu.classList.remove("hidden");
+    doc.popupMenuHeader.innerText = title;
+    doc.popupMenuDescription.innerText = description;
+
+    doc.popupMenuInput.classList.add("hidden");
+    doc.popupMenuInput.value = "";
+    doc.popupMenuSingleButton.classList.add("hidden");
+    doc.popupMenuLeftDoubleButton.classList.add("hidden");
+    doc.popupMenuRightDoubleButton.classList.add("hidden");
+
+    switch (type) {
+        // just simple text
+        case 0: {
+            doc.popupMenuDescription.classList.remove("contractedPopupDescription");
+            break;
+        }
+        // an input
+        case 1: {
+            doc.popupMenuDescription.classList.add("contractedPopupDescription");
+            doc.popupMenuInput.classList.remove("hidden");
+            break;
+        }
+    }
+
+    if (button2) {
+        doc.popupMenuLeftDoubleButton.classList.remove("hidden");
+        doc.popupMenuRightDoubleButton.classList.remove("hidden");
+        doc.popupMenuLeftDoubleButton.innerText = button1;
+        doc.popupMenuRightDoubleButton.innerText = button2;
+        const btn1Event = function(e) {
+            if (callback1(e)) {
+                doc.popupMenu.classList.add("hidden");
+                doc.popupMenuLeftDoubleButton.removeEventListener("click", btn1Event);
+                doc.popupMenuRightDoubleButton.removeEventListener("click", btn2Event);
+            }
+        }
+        const btn2Event = function(e) {
+            if (callback2(e)) {
+                doc.popupMenu.classList.add("hidden");
+                doc.popupMenuLeftDoubleButton.removeEventListener("click", btn1Event);
+                doc.popupMenuRightDoubleButton.removeEventListener("click", btn2Event);
+            }
+        }
+        doc.popupMenuLeftDoubleButton.addEventListener("click", btn1Event);
+        doc.popupMenuRightDoubleButton.addEventListener("click", btn2Event);
+    } else {
+        doc.popupMenuSingleButton.classList.remove("hidden");
+        doc.popupMenuSingleButton.innerText = button1;
+        const btn1Event = function(e) {
+            if (callback1(e)) {
+                doc.popupMenu.classList.add("hidden");
+                doc.popupMenuSingleButton.removeEventListener("click", btn1Event);
+            }
+        }
+        doc.popupMenuSingleButton.addEventListener("click", btn1Event);
     }
 }
 

@@ -1,5 +1,5 @@
 {
-    "name": "rubixcube",
+    "name": "kobold",
     "version": "0.1.0",
     "description": "WebGPU Testing",
     "main": "server.js",
@@ -17,7 +17,7 @@
       "express-minify": "latest"
     },
     "engines": {
-      "node": "16.x"
+      "node": "v20.19.1", "npm": "v10.8.2"
     },
     "keywords": []
   }

@@ -214,15 +214,15 @@
         <div class="characterSubsectionTab centerFlexAlign characterSheetBarHeader menuHolder" id="characterActionsTab">
             <span class="emojiFont">💥</span>&nbsp;Actions&nbsp;<span class="emojiFont">💥</span>
         </div>
-        <div class="characterSubsectionTab centerFlexAlign characterSheetBarHeader menuHolder" id="characterTraitsTab">
-            <span class="emojiFont">✪</span>&nbsp;Traits&nbsp;<span class="emojiFont">✪</span>
+        <div class="characterSubsectionTab centerFlexAlign characterSheetBarHeader menuHolder" id="characterStatusTab">
+            <span class="emojiFont">✪</span>&nbsp;Status&nbsp;<span class="emojiFont">✪</span>
         </div>
         <div class="characterSubsectionTab centerFlexAlign characterSheetBarHeader menuHolder" id="characterClassesTab">
             <span class="emojiFont">🏹</span>&nbsp;Classes&nbsp;<span class="emojiFont">🏹</span>
         </div>
 
         <!-- The inventory subpage, dealing with managing everything a character is holding or carrying -->
-        <div id="characterInventoryPage">
+        <div id="characterInventoryPage" class="characterPage hidden">
             <!-- The various buttons and headers for the inventory -->
             <!-- The actual inventory list, with clickable items -->
             <div id="characterInventoryMainPanel">
@@ -238,17 +238,61 @@
                 <h1 id="characterInventoryDescriptionPanelTitle" class="characterInventoryDescriptionPanelObject">No Items Selected</h1>
             </div>
         </div>
+
+        <!-- The classes subpage, dealing with the background, classes, and subclasses of a character -->
+        <div id="characterActionsPage" class="hidden characterPage">
+            <!-- The subsubheaders, for the class, subclass, background, and characteristics of the player -->
+            <!-- The panel showing data based on the subsection -->
+            <div id="characterActionsMainPanel">
+
+            </div>
+        </div>
+
+        <!-- The classes subpage, dealing with the background, classes, and subclasses of a character -->
+        <div id="characterStatusPage" class="hidden characterPage">
+            <!-- The subsubheaders, for the class, subclass, background, and characteristics of the player -->
+            <!-- The panel showing data based on the subsection -->
+            <div id="characterStatusMainPanel">
+
+            </div>
+        </div>
+
+        <!-- The classes subpage, dealing with the background, classes, and subclasses of a character -->
+        <div id="characterClassesPage" class="characterPage">
+            <!-- The subsubheaders, for the class, subclass, background, and characteristics of the player -->
+            <button class="characterHeaderButton selectedCharacterClassesButton" id="characterClassesClassButton">Class</button>
+            <button class="characterHeaderButton" id="characterClassesRaceButton">Race</button>
+            <button class="characterHeaderButton" id="characterClassesBackgroundButton">Background</button>
+            <button class="characterHeaderButton" id="characterClassesCharacteristicsButton">Characteristics</button>
+            <!-- The panel showing data based on the subsection -->
+            <div id="characterClassesMainPanel">
+                <div id="characterClassesClassSubpanel" class="characterClassesSubpanel hidden"></div>
+                <div id="characterClassesRaceSubpanel" class="characterClassesSubpanel hidden"></div>
+                <div id="characterClassesBackgroundSubpanel" class="characterClassesSubpanel hidden"></div>
+                <!-- The subpanel containing the characteristics and calculated stats of the character -->
+                <div id="characterClassesCharacteristicsSubpanel" class="characterClassesSubpanel">
+                    <div id="classesStrengthCharacteristicsBox" class="characterClassPanelCharacteristicBox">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Strength</p>
+                        <input class="characterClassPanelCharacteristicBoxField">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold" style="margin-top: 5vh">Strength Modifiers</p>
+                    </div>
+                    <button class="characterClassPanelCharacteristicBoxButton centerFlexAlign" id="classesStrengthModBtn">Add Str Mod</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- The main game canvas -->
 
     <!-- The popup menu, which displays various alerts and notifications while using the app -->
-    <div id="popupMenu" style="display:none">
+    <div id="popupMenu" class="hidden">
+        <div class="popupBackground"></div>
         <h1 id="popupMenuHeader" class="centerFlexAlign"></h1>
-        <p id="popupMenuDescription" class="customScrollBar"></p>
-        <button id="popupMenuSingleButton" class="popupMenuButton">Single Button</button>
-        <button id="popupMenuLeftDoubleButton" class="popupMenuButton">Confirm</button>
-        <button id="popupMenuRightDoubleButton" class="popupMenuButton">Cancel</button>
+        <p id="popupMenuDescription" class="popupMenuDescription customScrollBar"></p>
+        <button id="popupMenuSingleButton" class="popupMenuButton hidden">Single Button</button>
+        <button id="popupMenuLeftDoubleButton" class="popupMenuButton hidden">Confirm</button>
+        <button id="popupMenuRightDoubleButton" class="popupMenuButton hidden">Cancel</button>
+        <input id="popupMenuInput" class="popupMenuButton hidden" placeholder="Type Here">
     </div>
 </body>
 <script src="pageListeners.js" type="module"></script>

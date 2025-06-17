@@ -18,12 +18,7 @@
 
 <body oncontextmenu="return false;">
     <!-- The custom context menu, which follows the mouse -->
-    <div id="contextMenu" class="hidden">
-        <button class="contextMenuButton">Button 1</button>
-        <button class="contextMenuButton">do something I think</button>
-        <button class="contextMenuButton">random option</button>
-        <button class="contextMenuButton">self destructus</button>
-    </div>
+    <div id="contextMenu" class="hidden"></div>
     <!-- The dynamic character object sheet menu -->
     <div id="characterSheetMenu" class="menu">
         <!-- The pullup menu, which shows character options when hovered -->
@@ -272,11 +267,41 @@
                 <!-- The subpanel containing the characteristics and calculated stats of the character -->
                 <div id="characterClassesCharacteristicsSubpanel" class="characterClassesSubpanel">
                     <div id="classesStrengthCharacteristicsBox" class="characterClassPanelCharacteristicBox">
-                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Strength</p>
-                        <input class="characterClassPanelCharacteristicBoxField">
-                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold" style="margin-top: 5vh">Strength Modifiers</p>
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Str</p>
+                        <input id="characterCharacteristicBaseStrengthField" class="characterClassPanelCharacteristicBoxField">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold" style="margin-top: 5vh">Str Mods</p>
                     </div>
                     <button class="characterClassPanelCharacteristicBoxButton centerFlexAlign" id="classesStrengthModBtn">Add Str Mod</button>
+                    <div id="classesDexterityCharacteristicsBox" class="characterClassPanelCharacteristicBox">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Dex</p>
+                        <input id="characterCharacteristicBaseDexterityField" class="characterClassPanelCharacteristicBoxField">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold" style="margin-top: 5vh">Dex Mods</p>
+                    </div>
+                    <button class="characterClassPanelCharacteristicBoxButton centerFlexAlign" id="classesDexterityModBtn">Add Dex Mod</button>
+                    <div id="classesConstitutionCharacteristicsBox" class="characterClassPanelCharacteristicBox">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Con</p>
+                        <input id="characterCharacteristicBaseConstitutionField" class="characterClassPanelCharacteristicBoxField">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold" style="margin-top: 5vh">Con Mods</p>
+                    </div>
+                    <button class="characterClassPanelCharacteristicBoxButton centerFlexAlign" id="classesConstitutionModBtn">Add Con Mod</button>
+                    <div id="classesWisdomCharacteristicsBox" class="characterClassPanelCharacteristicBox">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Wis</p>
+                        <input id="characterCharacteristicBaseWisdomField" class="characterClassPanelCharacteristicBoxField">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold" style="margin-top: 5vh">Wis Mods</p>
+                    </div>
+                    <button class="characterClassPanelCharacteristicBoxButton centerFlexAlign" id="classesWisdomModBtn">Add Wis Mod</button>
+                    <div id="classesIntelligenceCharacteristicsBox" class="characterClassPanelCharacteristicBox">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Int</p>
+                        <input id="characterCharacteristicBaseIntelligenceField" class="characterClassPanelCharacteristicBoxField">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold" style="margin-top: 5vh">Int Mods</p>
+                    </div>
+                    <button class="characterClassPanelCharacteristicBoxButton centerFlexAlign" id="classesIntelligenceModBtn">Add Int Mod</button>
+                    <div id="classesCharismaCharacteristicsBox" class="characterClassPanelCharacteristicBox">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Cha</p>
+                        <input id="characterCharacteristicBaseCharismaField" class="characterClassPanelCharacteristicBoxField">
+                        <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold" style="margin-top: 5vh">Cha Mods</p>
+                    </div>
+                    <button class="characterClassPanelCharacteristicBoxButton centerFlexAlign" id="classesCharismaModBtn">Add Cha Mod</button>
                 </div>
             </div>
         </div>
@@ -295,7 +320,8 @@
         <input id="popupMenuInput" class="popupMenuButton hidden" placeholder="Type Here">
     </div>
 </body>
-<script src="pageListeners.js" type="module"></script>
+<script src="helpers.js" type="module"></script>
+<script src="sheetScripts.js" type="module"></script>
 <script src="index.js" type="module"></script>
 <script src="characterProcessor.js" type="module"></script>
 </html>

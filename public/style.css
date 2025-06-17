@@ -650,9 +650,10 @@ div {
     top: 2vh;
     left: 2vw;
     height: 50vh;
-    width: 15vw;
+    width: 11.66vw;
     background-color: var(--darkGrey);
     border: 0.5vmin var(--black) solid;
+    box-sizing: content-box;
     overflow-y: scroll;
 }
 
@@ -661,20 +662,22 @@ div {
     height: 6vh;
     width: 100%;
     font-size: 2vmin;
+    text-align: center;
 }
 
 .characterClassPanelCharacteristicBoxButton {
     position: absolute;
     height: 5vh;
     top: 53vh;
-    left: 2vw;
-    width: 15vw;
+    width: 11.66vw;
     font-size: 2vmin;
     background-color: var(--veryDarkGrey);
     cursor: pointer;
+    text-align: center;
+    transform: scale(90%);
 }
 .characterClassPanelCharacteristicBoxButton:hover {
-    transform: scale(105%);
+    transform: scale(100%);
 }
 
 .characterClassPanelCharacteristicBoxField {
@@ -688,6 +691,26 @@ div {
 }
 .characterClassPanelCharacteristicBoxField:hover {
     background-color: var(--black);
+}
+
+/* The 6 specific characteristic boxes */
+#classesStrengthCharacteristicsBox, #classesStrengthModBtn {
+    left: 2vw;
+}
+#classesDexterityCharacteristicsBox, #classesDexterityModBtn {
+    left: 13.66vw;
+}
+#classesConstitutionCharacteristicsBox, #classesConstitutionModBtn {
+    left: 25.33vw;
+}
+#classesWisdomCharacteristicsBox, #classesWisdomModBtn {
+    left: 37vw;
+}
+#classesIntelligenceCharacteristicsBox, #classesIntelligenceModBtn {
+    left: 48.66vw;
+}
+#classesCharismaCharacteristicsBox, #classesCharismaModBtn {
+    left: 60.33vw;
 }
 
 /* The popup menu can be called, and appears during alerts, confirmations, and notifications */

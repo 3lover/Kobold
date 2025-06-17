@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc } from "./pageListeners.js";
+import { doc } from "./sheetScripts.js";
 
 let socket = null;
 let W = window.innerWidth;

@@ -1,3 +1,5 @@
+import { dice } from "./helpers.js";
+
 export const doc = {
     frontPageSubmitButton: document.getElementById("frontPageSubmitButton"),
     frontMenuCodeInput: document.getElementById("frontMenuCodeInput"),
@@ -87,6 +89,8 @@ function closeAllSelect(elmnt) {
       x[i].classList.add("customSelectObject-hide");
     }
   }
+  // we also close the context menu after a click, if not already closed
+  doc.contextMenu.classList.add("hidden");
 }
 // if the user clicks anywhere outside the select box, then close all select boxes:
 document.addEventListener("click", closeAllSelect);
@@ -95,31 +99,82 @@ document.addEventListener("click", closeAllSelect);
 
 // the right click event, which opens the context menu on an item if applicable, or otherwise starts an event
 document.addEventListener("contextmenu", function(e) {
-    doc.contextMenu.style.left = `${e.clientX}px`;
-    doc.contextMenu.style.top = `${e.clientY}px`;
+    doc.contextMenu.style.left = `${e.clientX - 3}px`;
+    doc.contextMenu.style.top = `${e.clientY - 3}px`;
     doc.contextMenu.classList.remove("hidden");
 });
 
 // if the context menu is moved off of, it is hidden
 doc.contextMenu.addEventListener("mouseleave", function(e) {
     doc.contextMenu.classList.add("hidden");
+    while (doc.contextMenu.children.length > 0) doc.contextMenu.lastChild.remove();
+});
+
+// adds the right click menu to the base statistics input for rolling random stats
+let baseCharacteristicInputs = [
+    document.getElementById("characterCharacteristicBaseStrengthField"),
+    document.getElementById("characterCharacteristicBaseDexterityField"),
+    document.getElementById("characterCharacteristicBaseConstitutionField"),
+    document.getElementById("characterCharacteristicBaseWisdomField"),
+    document.getElementById("characterCharacteristicBaseIntelligenceField"),
+    document.getElementById("characterCharacteristicBaseCharismaField"),
+];
+for (let input of baseCharacteristicInputs) input.addEventListener("contextmenu", function(e) {
+    populateRightClick([{
+        name: "Randomize Base Stats",
+        function: function() {
+            createPopup("Confirm Randomization", "Do you want to randomize your base stats using the standard 4d6, take 3 method?", {type: 0}, "No", function(e){return true},
+            "Yes", function(e){
+                for (let input of baseCharacteristicInputs) {
+                    let lowestRoll = 6;
+                    let total = 0;
+                    let rolls = [];
+                    for (let i = 0; i < 4; i++) {
+                        let roll = dice(6);
+                        if (roll < lowestRoll) lowestRoll = roll;
+                        total += roll;
+                        rolls.push(roll);
+                    }
+                    total -= lowestRoll;
+                    input.value = total;
+                }
+                return true;
+            });
+        }
+    }]);
 });
 
 // if an "add modifier" button is pressed on the characteristics page, add a modifier slot
 let modButtons = [
-    document.getElementById("classesStrengthModBtn"), document.getElementById("classesStrengthCharacteristicsBox")
+    document.getElementById("classesStrengthModBtn"), document.getElementById("classesStrengthCharacteristicsBox"),
+    document.getElementById("classesDexterityModBtn"), document.getElementById("classesDexterityCharacteristicsBox"),
+    document.getElementById("classesConstitutionModBtn"), document.getElementById("classesConstitutionCharacteristicsBox"),
+    document.getElementById("classesWisdomModBtn"), document.getElementById("classesWisdomCharacteristicsBox"),
+    document.getElementById("classesIntelligenceModBtn"), document.getElementById("classesIntelligenceCharacteristicsBox"),
+    document.getElementById("classesCharismaModBtn"), document.getElementById("classesCharismaCharacteristicsBox"),
 ];
 for (let i = 0; i < modButtons.length; i += 2) modButtons[i].addEventListener("click", function(e) {
     createPopup(
-        "Create Modifier", "Please select a name for this modifier. To delete it later, right click it.", 1,
+        "Create Modifier", "Please select a name for this modifier. To delete it later, right click it.",
+        {type: 1, placeholder: "Custom Modifier", maxlength: 32},
         "Cancel", function(e) {return true},
         "Submit", function(e) {
             let modifierText = document.createElement("p");
             modifierText.classList.add("characterClassPanelCharacteristicBoxText", "centerFlexAlign");
-            modifierText.innerText = doc.popupMenuInput.value;
+            modifierText.innerText = doc.popupMenuInput.value || "Custom Modifier";
             modButtons[i + 1].appendChild(modifierText);
             let modifierTab = document.createElement("input");
             modifierTab.classList.add("characterClassPanelCharacteristicBoxField");
+            modifierTab.addEventListener("contextmenu", function(e) {
+                populateRightClick([{
+                    name: "Delete Modifier",
+                    function: function() {
+                        modButtons[i + 1].removeChild(modifierText);
+                        modButtons[i + 1].removeChild(modifierTab);
+                    }
+                }]);
+            });
+
             modButtons[i + 1].appendChild(modifierTab);
             return true;
         }
@@ -173,6 +228,20 @@ for (let tab of classesSubsectionTabs) tab.addEventListener("click", function(e)
         }
     }
 });
+
+// when the user opens the right click menu, this adds all the options for an item
+function populateRightClick(buttons = []) {
+    while (doc.contextMenu.children.length > 0) doc.contextMenu.lastChild.remove();
+
+    for (let button of buttons) {
+        let contextBtn = document.createElement("button");
+        contextBtn.classList.add("contextMenuButton");
+        contextBtn.innerText = button.name;
+        contextBtn.addEventListener("click", button.function);
+
+        doc.contextMenu.appendChild(contextBtn);
+    }
+}
 
 // extracts the entries and creates text objects for them
 function extractEntries(entries, parent, depth = 0) {
@@ -236,7 +305,6 @@ function populateDescriptionPanel(item) {
 
     // for every bit of info in the item's description entry, make a tab for it
     extractEntries(item.entries, doc.characterInventoryDescriptionPanel);
-
 }
 
 // populate the character inventory menu with whatever items the selected player currently has
@@ -288,12 +356,26 @@ function updateInventory(items = []) {
             populateDescriptionPanel(item);
         });
 
+        selector.addEventListener("contextmenu", function(e) {
+            populateRightClick([{
+                name: "Open Popup 1",
+                function: function() {
+                    createPopup("This is a popup", "And an example of the context menu", {type: 0}, "Ok?", function(e){return true});
+                }
+            }, {
+                name: "Open Popup 2",
+                function: function() {
+                    createPopup("This is the second popup", "And yet another example of the context menu", {type: 0}, "Please Stop", function(e){return true});
+                }
+            }]);
+        });
+
         doc.characterInventoryMainPanel.appendChild(selector);
     }
 }
 
 // creates a popup menu based on the specifications
-function createPopup(title, description, type, button1, callback1, button2, callback2) {
+function createPopup(title, description, special, button1, callback1, button2, callback2) {
     doc.popupMenu.classList.remove("hidden");
     doc.popupMenuHeader.innerText = title;
     doc.popupMenuDescription.innerText = description;
@@ -304,7 +386,7 @@ function createPopup(title, description, type, button1, callback1, button2, call
     doc.popupMenuLeftDoubleButton.classList.add("hidden");
     doc.popupMenuRightDoubleButton.classList.add("hidden");
 
-    switch (type) {
+    switch (special.type) {
         // just simple text
         case 0: {
             doc.popupMenuDescription.classList.remove("contractedPopupDescription");
@@ -314,6 +396,8 @@ function createPopup(title, description, type, button1, callback1, button2, call
         case 1: {
             doc.popupMenuDescription.classList.add("contractedPopupDescription");
             doc.popupMenuInput.classList.remove("hidden");
+            doc.popupMenuInput.placeholder = special.placeholder;
+            doc.popupMenuInput.maxLength = special.maxlength;
             break;
         }
     }

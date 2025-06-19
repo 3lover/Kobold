@@ -28,6 +28,14 @@
         "wis": 15,
         "cha": 20
     },
+    "characteristics": {
+        "str": 1,
+        "dex": 4,
+        "con": 8,
+        "int": 10,
+        "wis": 15,
+        "cha": 20
+    },
     "equipment": [],
     "gold": 107,
     "status": {
@@ -36,5 +44,15 @@
         "tempHealth": 10,
         "hitDice": 5
     },
-    "proficiencies": []
+    "proficiencies": [
+        {"type": "skill", "name": "acrobatics", "level": "prof"},
+        {"type": "skill", "name": "stealth", "level": "exp"},
+        {"type": "save", "name": "str", "level": "prof"}
+    ],
+    "modifiers": [
+        {"type": "characteristic", "target": "wis", "name": "Necklace of Wisdom", "amount": 2},
+        {"type": "characteristic", "target": "dex", "name": "Quadriplegic", "amount": -4},
+        {"type": "characteristic", "target": "dex", "name": "Wheelchair of Fury", "amount": 1}
+    ],
+    "saved": false
 }

@@ -1,4 +1,4 @@
-import { dice } from "./helpers.js";
+import { dice, skillList, baseCharacteristics, modifier } from "./helpers.js";
 
 export const doc = {
     frontPageSubmitButton: document.getElementById("frontPageSubmitButton"),
@@ -16,6 +16,27 @@ export const doc = {
     popupMenuLeftDoubleButton: document.getElementById("popupMenuLeftDoubleButton"),
     popupMenuRightDoubleButton: document.getElementById("popupMenuRightDoubleButton"),
     popupMenuInput: document.getElementById("popupMenuInput")
+}
+
+// basic data storage for characters, and the currently viewed character
+async function loadDefaultCharacterSheet() {
+    savedCharacters.push(await (await fetch("./json/defaultCharacterSheet.json")).json());
+    currentSelectedCharacter = savedCharacters[0];
+    fillCharacterFields(currentSelectedCharacter);
+}
+export let currentSelectedCharacter = null;
+export let savedCharacters = [];
+if (localStorage.getItem("savedCharacters")) savedCharacters = JSON.parse(localStorage.getItem("savedCharacters"));
+else await loadDefaultCharacterSheet();
+
+// possible error popups
+function error(id) {
+    switch (id) {
+        case 0: {
+            createPopup("Error", "This character cannot be found.", {type: 0}, "Ok", function(e) {return true});
+            return false;
+        }
+    }
 }
 
 //_ custom select menu code
@@ -112,12 +133,12 @@ doc.contextMenu.addEventListener("mouseleave", function(e) {
 
 // adds the right click menu to the base statistics input for rolling random stats
 let baseCharacteristicInputs = [
-    document.getElementById("characterCharacteristicBaseStrengthField"),
-    document.getElementById("characterCharacteristicBaseDexterityField"),
-    document.getElementById("characterCharacteristicBaseConstitutionField"),
-    document.getElementById("characterCharacteristicBaseWisdomField"),
-    document.getElementById("characterCharacteristicBaseIntelligenceField"),
-    document.getElementById("characterCharacteristicBaseCharismaField"),
+    document.getElementById("strCharacteristicBaseField"),
+    document.getElementById("dexCharacteristicBaseField"),
+    document.getElementById("conCharacteristicBaseField"),
+    document.getElementById("wisCharacteristicBaseField"),
+    document.getElementById("intCharacteristicBaseField"),
+    document.getElementById("chaCharacteristicBaseField"),
 ];
 for (let input of baseCharacteristicInputs) input.addEventListener("contextmenu", function(e) {
     populateRightClick([{
@@ -146,12 +167,12 @@ for (let input of baseCharacteristicInputs) input.addEventListener("contextmenu"
 
 // if an "add modifier" button is pressed on the characteristics page, add a modifier slot
 let modButtons = [
-    document.getElementById("classesStrengthModBtn"), document.getElementById("classesStrengthCharacteristicsBox"),
-    document.getElementById("classesDexterityModBtn"), document.getElementById("classesDexterityCharacteristicsBox"),
-    document.getElementById("classesConstitutionModBtn"), document.getElementById("classesConstitutionCharacteristicsBox"),
-    document.getElementById("classesWisdomModBtn"), document.getElementById("classesWisdomCharacteristicsBox"),
-    document.getElementById("classesIntelligenceModBtn"), document.getElementById("classesIntelligenceCharacteristicsBox"),
-    document.getElementById("classesCharismaModBtn"), document.getElementById("classesCharismaCharacteristicsBox"),
+    document.getElementById("classesStrengthModBtn"), document.getElementById("strClassesCharacteristicsBox"),
+    document.getElementById("classesDexterityModBtn"), document.getElementById("dexClassesCharacteristicsBox"),
+    document.getElementById("classesConstitutionModBtn"), document.getElementById("conClassesCharacteristicsBox"),
+    document.getElementById("classesWisdomModBtn"), document.getElementById("wisClassesCharacteristicsBox"),
+    document.getElementById("classesIntelligenceModBtn"), document.getElementById("intClassesCharacteristicsBox"),
+    document.getElementById("classesCharismaModBtn"), document.getElementById("chaClassesCharacteristicsBox"),
 ];
 for (let i = 0; i < modButtons.length; i += 2) modButtons[i].addEventListener("click", function(e) {
     createPopup(
@@ -159,26 +180,25 @@ for (let i = 0; i < modButtons.length; i += 2) modButtons[i].addEventListener("c
         {type: 1, placeholder: "Custom Modifier", maxlength: 32},
         "Cancel", function(e) {return true},
         "Submit", function(e) {
-            let modifierText = document.createElement("p");
-            modifierText.classList.add("characterClassPanelCharacteristicBoxText", "centerFlexAlign");
-            modifierText.innerText = doc.popupMenuInput.value || "Custom Modifier";
-            modButtons[i + 1].appendChild(modifierText);
-            let modifierTab = document.createElement("input");
-            modifierTab.classList.add("characterClassPanelCharacteristicBoxField");
-            modifierTab.addEventListener("contextmenu", function(e) {
-                populateRightClick([{
-                    name: "Delete Modifier",
-                    function: function() {
-                        modButtons[i + 1].removeChild(modifierText);
-                        modButtons[i + 1].removeChild(modifierTab);
-                    }
-                }]);
+            // creates a new custom modifier
+            if (!currentSelectedCharacter) return error(0);
+            currentSelectedCharacter.modifiers.push({
+                type: "characteristic",
+                target: baseCharacteristics[i/2],
+                name: doc.popupMenuInput.value || "Custom Modifier",
+                amount: 0
             });
-
-            modButtons[i + 1].appendChild(modifierTab);
+            fillCharacterFields(currentSelectedCharacter);
             return true;
         }
     );
+});
+
+// adds an update when changing the character's base stats
+for (let char of baseCharacteristics) document.getElementById(`${char}CharacteristicBaseField`).addEventListener("change", function(e) {
+    if (!currentSelectedCharacter) return error(0);
+    currentSelectedCharacter.baseCharacteristics[char] = parseInt(document.getElementById(`${char}CharacteristicBaseField`).value);
+    fillCharacterFields(currentSelectedCharacter);
 });
 
 // when a section tab is pressed in the character creation menu, hide all other pages
@@ -371,6 +391,109 @@ function updateInventory(items = []) {
         });
 
         doc.characterInventoryMainPanel.appendChild(selector);
+    }
+}
+
+// generates all the menus for the character, filling them in with data matching the sheet
+function fillCharacterFields(character) {
+    // calculates the characteristics for each base stat from all modifiers
+    for (let characteristic of baseCharacteristics) {
+        let stat = character.baseCharacteristics[characteristic];
+
+        // update the characteristics menu with the base characteristics
+        document.getElementById(`${characteristic}CharacteristicBaseField`).value = character.baseCharacteristics[characteristic];
+
+        // go through and calculate the real values from modifiers
+        let charBox = document.getElementById(`${characteristic}ClassesCharacteristicsBox`);
+        while (charBox.children.length > 3) charBox.lastChild.remove();
+        for (let mod of character.modifiers) {
+            if (mod.type !== "characteristic" || mod.target !== characteristic) continue;
+            stat += mod.amount;
+
+            // create an input tab for each modifier
+            let modifierText = document.createElement("p");
+            modifierText.classList.add("characterClassPanelCharacteristicBoxText", "centerFlexAlign");
+            modifierText.innerText = mod.name;
+            charBox.appendChild(modifierText);
+            let modifierTab = document.createElement("input");
+            modifierTab.classList.add("characterClassPanelCharacteristicBoxField");
+            modifierTab.value = mod.amount;
+            modifierTab.addEventListener("contextmenu", function(e) {
+                populateRightClick([{
+                    name: "Delete Modifier",
+                    function: function() {
+                        if (!currentSelectedCharacter) return error(0);
+                        currentSelectedCharacter.modifiers.splice(currentSelectedCharacter.modifiers.indexOf(mod), 1);
+                        fillCharacterFields(currentSelectedCharacter);
+                    }
+                }]);
+            });
+            modifierTab.addEventListener("change", function(e) {
+                if (!currentSelectedCharacter) return error(0);
+                currentSelectedCharacter.modifiers[currentSelectedCharacter.modifiers.indexOf(mod)].amount = parseInt(modifierTab.value);
+                fillCharacterFields(currentSelectedCharacter);
+            });
+            charBox.appendChild(modifierTab);
+        }
+
+        // set the characteristics correctly
+        character.characteristics[characteristic] = stat;
+        console.log(characteristic, stat)
+    }
+
+    // go through every skill and auto-fill it
+    for (let skill of Object.keys(skillList)) {
+        let holder = document.getElementById(`${skill}ModifierHolder`);
+        // run through every proficiency we have to get our prof level
+        let profLevel = 0;
+        for (let prof of character.proficiencies) {
+            if (prof.type !== "skill" || prof.name !== skill) continue;
+            if (prof.level === "prof" && profLevel < 3) profLevel = 3;
+            if (prof.level === "exp") profLevel = 6;
+        }
+        switch (profLevel) {
+            case 3: {
+                holder.classList.add("characterAbilitySidebarHolderProf");
+                break;
+            }
+            case 6: {
+                holder.classList.add("characterAbilitySidebarHolderExp");
+                break;
+            }
+        }
+        // calculate the stat from our base modifiers
+        let stat = modifier(character.characteristics[skillList[skill]]) + profLevel;
+        holder.children[1].innerText = (stat >= 0 ? "+" : "") + stat;
+    }
+
+    // go through every saving throw and auto fill it
+    for (let characteristic of baseCharacteristics) {
+        let holder = document.getElementById(`${characteristic}SaveModifierHolder`);
+        let profLevel = 0;
+        for (let prof of character.proficiencies) {
+            if (prof.type !== "save" || prof.name !== characteristic) continue;
+            if (prof.level === "prof" && profLevel < 3) profLevel = 3;
+            if (prof.level === "exp") profLevel = 6;
+        }
+        switch (profLevel) {
+            case 3: {
+                holder.classList.add("characterAbilitySidebarHolderProf");
+                break;
+            }
+            case 6: {
+                holder.classList.add("characterAbilitySidebarHolderExp");
+                break;
+            }
+        }
+        let stat = modifier(character.characteristics[characteristic]) + profLevel;
+        holder.children[1].innerText = (stat >= 0 ? "+" : "") + stat;
+    }
+
+    // finally, fill in the base stats
+    for (let characteristic of baseCharacteristics) {
+        let holder = document.getElementById(`${characteristic}BaseStatModifierHolder`);
+        let stat = modifier(character.characteristics[characteristic]);
+        holder.children[1].innerText = (stat >= 0 ? "+" : "") + stat;
     }
 }
 

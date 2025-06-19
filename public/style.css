@@ -333,6 +333,18 @@ div {
 .characterAbilitySidebarHolder:hover {
     background-color: var(--grey);
 }
+.characterAbilitySidebarHolderProf {
+    background-color: var(--veryDarkCyan);
+}
+.characterAbilitySidebarHolderProf:hover {
+    background-color: var(--darkCyan);
+}
+.characterAbilitySidebarHolderExp {
+    background-color: var(--veryDarkOrange);
+}
+.characterAbilitySidebarHolderExp:hover {
+    background-color: var(--darkOrange);
+}
 
 .characterAbilitySidebarText {
     font-size: 2vmin;
@@ -351,6 +363,18 @@ div {
 .characterAbilitySidebarHolder:hover .characterAbilityDiceModifier {
     background-color: var(--lightGrey);
     color: var(--black);
+}
+.characterAbilitySidebarHolderProf .characterAbilityDiceModifier {
+    background-color: var(--darkCyan);
+}
+.characterAbilitySidebarHolderProf:hover .characterAbilityDiceModifier {
+    background-color: var(--cyan);
+}
+.characterAbilitySidebarHolderExp .characterAbilityDiceModifier {
+    background-color: var(--darkOrange);
+}
+.characterAbilitySidebarHolderExp:hover .characterAbilityDiceModifier {
+    background-color: var(--orange);
 }
 
 /* The input bar for holding the name of monster/character sheet */
@@ -694,22 +718,22 @@ div {
 }
 
 /* The 6 specific characteristic boxes */
-#classesStrengthCharacteristicsBox, #classesStrengthModBtn {
+#strClassesCharacteristicsBox, #classesStrengthModBtn {
     left: 2vw;
 }
-#classesDexterityCharacteristicsBox, #classesDexterityModBtn {
+#dexClassesCharacteristicsBox, #classesDexterityModBtn {
     left: 13.66vw;
 }
-#classesConstitutionCharacteristicsBox, #classesConstitutionModBtn {
+#conClassesCharacteristicsBox, #classesConstitutionModBtn {
     left: 25.33vw;
 }
-#classesWisdomCharacteristicsBox, #classesWisdomModBtn {
+#wisClassesCharacteristicsBox, #classesWisdomModBtn {
     left: 37vw;
 }
-#classesIntelligenceCharacteristicsBox, #classesIntelligenceModBtn {
+#intClassesCharacteristicsBox, #classesIntelligenceModBtn {
     left: 48.66vw;
 }
-#classesCharismaCharacteristicsBox, #classesCharismaModBtn {
+#chaClassesCharacteristicsBox, #classesCharismaModBtn {
     left: 60.33vw;
 }
 

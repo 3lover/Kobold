@@ -194,10 +194,16 @@ for (let i = 0; i < modButtons.length; i += 2) modButtons[i].addEventListener("c
     );
 });
 
-// adds an update when changing the character's base stats
+// adds an update when changing the character's fields
 for (let char of baseCharacteristics) document.getElementById(`${char}CharacteristicBaseField`).addEventListener("change", function(e) {
     if (!currentSelectedCharacter) return error(0);
     currentSelectedCharacter.baseCharacteristics[char] = parseInt(document.getElementById(`${char}CharacteristicBaseField`).value);
+    fillCharacterFields(currentSelectedCharacter);
+});
+
+document.getElementById(`characterHealthField`).addEventListener("change", function(e) {
+    if (!currentSelectedCharacter) return error(0);
+    currentSelectedCharacter.status.health = parseInt(document.getElementById(`characterHealthField`).value);
     fillCharacterFields(currentSelectedCharacter);
 });
 
@@ -489,12 +495,43 @@ function fillCharacterFields(character) {
         holder.children[1].innerText = (stat >= 0 ? "+" : "") + stat;
     }
 
-    // finally, fill in the base stats
+    // fill in the base stats
     for (let characteristic of baseCharacteristics) {
         let holder = document.getElementById(`${characteristic}BaseStatModifierHolder`);
         let stat = modifier(character.characteristics[characteristic]);
         holder.children[1].innerText = (stat >= 0 ? "+" : "") + stat;
     }
+
+    // fill in the top bars, like hp and AC
+    document.getElementById("characterHealthField").value = character.status.health;
+    document.getElementById("characterHealthBottomtext").innerText = `Max: ${character.status.maxHealth}`;
+
+    let hitDiceText = `${character.status.hitDice[0].number ?? "0"}`;
+    let hitDiceBottomText = `d${character.status.hitDice[0].faces ?? "d8"}`;
+    for (let i = 1; i < character.status.hitDice.length; i++) {
+        hitDiceText += ` + ${character.status.hitDice[i].number}`;
+        hitDiceBottomText += ` + d${character.status.hitDice[i].faces}`;
+    }
+    document.getElementById("characterHitdiceField").innerText = hitDiceText;
+    document.getElementById("characterHitdiceBottomtext").innerText = hitDiceBottomText;
+
+    document.getElementById("characterACField").innerText = character.status.AC;
+    document.getElementById("characterACBottomtext").innerText = `Base: ${character.status.baseAC}`;
+
+    document.getElementById("characterInitiativeField").innerText = ((character.status.initiative > 0) ? "+" : "") + character.status.initiative;
+    document.getElementById("characterInitiativeBottomtext").innerText = "Out of Combat";
+
+    let speedText = character.status.walkSpeed + (character.status.flySpeed > 0 ? `/${character.status.flySpeed}` : ``);
+    document.getElementById("characterSpeedField").innerText = speedText;
+    document.getElementById("characterSpeedBottomtext").innerText = (character.status.flySpeed > 0 ? "Walk/Fly" : "Walking");
+    
+    document.getElementById("characterProficiencyField").innerText = (character.status.profBonus > 0 ? "+" : "") + character.status.profBonus;
+    document.getElementById("characterProficiencyBottomtext").innerText = "Level ??";
+
+    // fills in the character name, owner, and privacy setting
+    document.getElementById("characterNameInput").value = character.metadata.characterName;
+    document.getElementById("characterOwnerInput").value = character.metadata.ownerName;
+    document.getElementById("characterVisibilityInput").value = character.metadata.visibility;
 }
 
 // creates a popup menu based on the specifications

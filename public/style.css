@@ -419,7 +419,7 @@ div {
     left: 76vw;
     background-color: var(--darkGrey);
 }
-#characterVisibilityInput {
+#characterVisibilityInputHolder {
     left: 80vw;
     width: 18vw;
     padding: 0;

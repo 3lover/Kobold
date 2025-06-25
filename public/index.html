@@ -35,16 +35,16 @@
         <p id="characterOwnerInputIcon" class="characterTopInputIcon centerFlexAlign menuHolder">🜲</p>
         <input id="characterOwnerInput" class="characterTopInput menuHolder" placeholder="Owner">
         <p id="characterVisibilityInputIcon" class="characterTopInputIcon centerFlexAlign menuHolder">👁</p>
-        <div class="customSelectObject characterTopInput menuHolder" id="characterVisibilityInput"><select>
-            <option>Public</option>
-            <option selected>Private</option>
-            <option>Hidden</option>
+        <div class="customSelectObject characterTopInput menuHolder" id="characterVisibilityInputHolder"><select id="characterVisibilityInput">
+            <option value="0">Public</option>
+            <option value="1">Private</option>
+            <option value="2">Hidden</option>
         </select></div>
 
         <!-- The info boxes, the little rectangles holding HP, AC, speed, and other useful things-->
         <div id="characterHealthInfobox" class="characterInfobox">
             <p class="characterInfoboxToptext">♥ Hit Points ♥</p>
-            <input id="characterHealthField" class="characterInfoboxField" value="25" placeholder="0">
+            <input id="characterHealthField" class="characterInfoboxField" placeholder="0">
             <p id="characterHealthBottomtext" class="characterInfoboxBottomtext">Max: 50</p>
         </div>
         <div id="characterHitdiceInfobox" class="characterInfobox">
@@ -261,11 +261,17 @@
             <button class="characterHeaderButton" id="characterClassesCharacteristicsButton">Characteristics</button>
             <!-- The panel showing data based on the subsection -->
             <div id="characterClassesMainPanel">
-                <div id="characterClassesClassSubpanel" class="characterClassesSubpanel hidden"></div>
+                <!-- The subpanel containing the classes and levels for the character -->
+                <div id="characterClassesClassSubpanel" class="characterClassesSubpanel">
+                    <h1 class="characterClassSubpanelHeader">Classes</h1>
+                    <!-- Every class the player has will show here, as well as an option to add a class -->
+                    <!-- Button that when pressed, allows you to make a new class (can be input-confirmed deleted via right click) -->
+                </div>
+
                 <div id="characterClassesRaceSubpanel" class="characterClassesSubpanel hidden"></div>
                 <div id="characterClassesBackgroundSubpanel" class="characterClassesSubpanel hidden"></div>
                 <!-- The subpanel containing the characteristics and calculated stats of the character -->
-                <div id="characterClassesCharacteristicsSubpanel" class="characterClassesSubpanel">
+                <div id="characterClassesCharacteristicsSubpanel" class="characterClassesSubpanel hidden">
                     <div id="strClassesCharacteristicsBox" class="characterClassPanelCharacteristicBox">
                         <p class="characterClassPanelCharacteristicBoxText centerFlexAlign bold">Base Str</p>
                         <input id="strCharacteristicBaseField" class="characterClassPanelCharacteristicBoxField">

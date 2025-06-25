@@ -1,7 +1,8 @@
 {
     "metadata": {
-        "characterName": "",
-        "playerName": "",
+        "characterName": "Wheelius",
+        "ownerName": "3love",
+        "visibility": 2,
         "alignment": "",
         "appearance": {
             "eyes": "",
@@ -17,7 +18,9 @@
         "religions": [],
         "backstory": ""
     },
-    "classes": [{"id": 0, "lvl": 5, "mods": [0, 1, 1, 0, 0, 0]}],
+    "classes": [{
+        "name": "rogue", "level": 5
+    }],
     "background": 0,
     "race": 0,
     "baseCharacteristics": {
@@ -42,7 +45,23 @@
         "health": 50,
         "maxHealth": 100,
         "tempHealth": 10,
-        "hitDice": 5
+        "hitDice": [{"faces": 12, "number": 3}],
+        "AC": 10,
+        "baseAC": 10,
+        "initiative": 3,
+        "walkSpeed": 25,
+        "flySpeed": 0,
+        "profBonus": 3
+    },
+    "overrides": {
+        "maxHealth": false,
+        "hitDice": false,
+        "AC": false,
+        "baseAC": false,
+        "initiative": false,
+        "walkSpeed": false,
+        "flySpeed": false,
+        "profBonus": false
     },
     "proficiencies": [
         {"type": "skill", "name": "acrobatics", "level": "prof"},

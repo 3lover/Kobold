@@ -1,4 +1,4 @@
-// This function pulls apart the aspects of a character (class, background, race, items, ect.) and outputs a data json
+/*// This function pulls apart the aspects of a character (class, background, race, items, ect.) and outputs a data json
 
 export function processCharacter(j) {
     const data = {
@@ -13,7 +13,7 @@ export function processCharacter(j) {
 
     // now check our class, and see if we have any stat benefits from it
     for (let c of j.classes) {
-        let cref = /* eventually a function */ classData[c.id];
+        let cref = classData[c.id]; //! eventually a function
         for (let i = 0; i < 6; i++) {
             data.baseCharacteristics[i] += c.mods[i];
         }
@@ -37,4 +37,4 @@ async function getClassData() {
     
     fetchProtocol();
 }
-await getClassData();
+await getClassData();*/

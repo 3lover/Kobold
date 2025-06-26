@@ -35,6 +35,24 @@ export const baseCharacteristics = [
     "cha"
 ];
 
+// the names of every class
+export const classNames = [
+    "artificer",
+    "barbarian",
+    "bard",
+    "cleric",
+    "druid",
+    "fighter",
+    "monk",
+    "mystic",
+    "paladin",
+    "ranger",
+    "rogue",
+    "sorcerer",
+    "warlock",
+    "wizard"
+];
+
 // a function to calculate the modifier (ex- +4) from a stat (ex- 18)
 export function modifier(stat) {
     return Math.floor(stat/2) - 5;

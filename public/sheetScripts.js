@@ -1,4 +1,4 @@
-import { dice, skillList, baseCharacteristics, modifier } from "./helpers.js";
+import { dice, skillList, baseCharacteristics, modifier, classNames } from "./helpers.js";
 
 export const doc = {
     frontPageSubmitButton: document.getElementById("frontPageSubmitButton"),
@@ -9,6 +9,7 @@ export const doc = {
     characterInventoryMainPanel: document.getElementById("characterInventoryMainPanel"),
     characterInventoryDescriptionPanel: document.getElementById("characterInventoryDescriptionPanel"),
     characterInventoryDescriptionPanelTitle: document.getElementById("characterInventoryDescriptionPanelTitle"),
+    characterClassesClassSubpanel: document.getElementById("characterClassesClassSubpanel"),
     popupMenu: document.getElementById("popupMenu"),
     popupMenuHeader: document.getElementById("popupMenuHeader"),
     popupMenuDescription: document.getElementById("popupMenuDescription"),
@@ -26,6 +27,7 @@ async function loadDefaultCharacterSheet() {
 }
 export let currentSelectedCharacter = null;
 export let savedCharacters = [];
+export let classData = {};
 if (localStorage.getItem("savedCharacters")) savedCharacters = JSON.parse(localStorage.getItem("savedCharacters"));
 else await loadDefaultCharacterSheet();
 
@@ -400,8 +402,26 @@ function updateInventory(items = []) {
     }
 }
 
+function createClassDropdowns() {
+    // for every class we have, create a dropdown hierarchy
+    while (doc.characterClassesClassSubpanel.children.length > 1) doc.characterClassesClassSubpanel.lastChild.remove();
+    for (let c of Object.keys(classData)) {
+        // first generate a header with the class name
+        let tab = document.createElement("div");
+        tab.classList.add("characterEquippedClassTab");
+        
+        let header = document.createElement("div");
+        header.classList.add("characterEquippedClassHeader", "center");
+        header.innerText = c[0].toUpperCase() + c.substring(1);
+
+        tab.appendChild(header);
+        doc.characterClassesClassSubpanel.appendChild(tab);
+    }
+}
+
 // generates all the menus for the character, filling them in with data matching the sheet
 function fillCharacterFields(character) {
+
     // calculates the characteristics for each base stat from all modifiers
     for (let characteristic of baseCharacteristics) {
         let stat = character.baseCharacteristics[characteristic];
@@ -444,7 +464,6 @@ function fillCharacterFields(character) {
 
         // set the characteristics correctly
         character.characteristics[characteristic] = stat;
-        console.log(characteristic, stat)
     }
 
     // go through every skill and auto-fill it
@@ -613,3 +632,16 @@ async function fetchProtocol() {
     updateInventory(character.inventory);
 }
 await fetchProtocol();
+
+// fetch classes and throw them into an object
+async function fetchClass(name, final) {
+    let classInfo = await (await fetch(`./json/data/class/class-${name}.json`)).json();
+    classData[name] = classInfo;
+    if (final) {
+        createClassDropdowns();
+        console.log("done");
+    }
+}
+for (let c of classNames) {
+    await fetchClass(c, c === classNames[classNames.length - 1]);
+}

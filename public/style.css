@@ -667,6 +667,7 @@ div {
     background: transparent;
     width: 100%;
     height: 100%;
+    overflow-y: scroll;
 }
 
 /* The holder for the characteristics of the player in the class panel */
@@ -735,6 +736,48 @@ div {
 }
 #chaClassesCharacteristicsBox, #classesCharismaModBtn {
     left: 60.33vw;
+}
+
+/* The classlist headers and text */
+.characterClassSubpanelHeader {
+    position: relative;
+    width: 70vw;
+    left: 2vw;
+    height: 8vh;
+    font-size: 4vmin;
+}
+
+/* The tabs that show leveled/equipped classes for the player */
+.characterEquippedClassTab {
+    position: relative;
+    width: 70vw;
+    left: 2vw;
+    margin-top: 2vh;
+    margin-bottom: 2vh;
+    border: solid 0.5vmin var(--black);
+    background-color: var(--black);
+}
+.characterEquippedClassTabDisabled {
+    height: 6vh;
+}
+.characterEquippedClassTabEnabled {
+    height: auto;
+}
+
+.characterEquippedClassHeader {
+    position: relative;
+    width: 70vw;
+    height: 6vh;
+    background-color: var(--veryDarkGrey);
+    display: flex;
+    align-items: center;
+    padding-left: 1vw;
+}
+.characterEquippedClassHeader:hover {
+    background-color: var(--darkGrey);
+}
+.characterEquippedClassHeader:active {
+    background-color: var(--grey);
 }
 
 /* The popup menu can be called, and appears during alerts, confirmations, and notifications */

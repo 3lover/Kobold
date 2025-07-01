@@ -272,23 +272,23 @@ function populateRightClick(buttons = []) {
 }
 
 // extracts the entries and creates text objects for them
-function extractEntries(entries, parent, depth = 0) {
+function extractEntries(entries, parent, extractClasses = {header: [], content: [], general: []}, depth = 0) {
     for (let entry of entries) {
         // create a header element if the entry has one
         if (entry.name) {
             let header = document.createElement("p");
-            header.classList.add("characterInventoryDescriptionPanelObject", "characterInventoryDescriptionPanelHeader");
+            for (let trait of extractClasses.header) header.classList.add(trait);
             header.innerText = entry.name;
             parent.appendChild(header);
         }
 
         let e = document.createElement("p");
-        e.classList.add("characterInventoryDescriptionPanelObject");
-        if (depth === 0) e.classList.add("characterInventoryDescriptionPanelProperty");
+        for (let trait of extractClasses.general) e.classList.add(trait);
+        if (depth === 0) for (let trait of extractClasses.content) e.classList.add(trait);
         // check what type the entry is, or show it as text by default
         switch (entry.type) {
             case "entries": {
-                extractEntries(entry.entries, e, depth + 1);
+                extractEntries(entry.entries, extractClasses.dontChangeParent ? parent : e, extractClasses, depth + 1);
                 break;
             }
             case "list": {
@@ -332,7 +332,11 @@ function populateDescriptionPanel(item) {
     if (keywordList.length > 0) doc.characterInventoryDescriptionPanel.appendChild(keywords);
 
     // for every bit of info in the item's description entry, make a tab for it
-    extractEntries(item.entries, doc.characterInventoryDescriptionPanel);
+    extractEntries(item.entries, doc.characterInventoryDescriptionPanel, {
+        header: ["characterInventoryDescriptionPanelObject", "characterInventoryDescriptionPanelHeader"],
+        content: ["characterInventoryDescriptionPanelProperty"],
+        general: ["characterInventoryDescriptionPanelObject"]
+    });
 }
 
 // populate the character inventory menu with whatever items the selected player currently has
@@ -406,15 +410,79 @@ function createClassDropdowns() {
     // for every class we have, create a dropdown hierarchy
     while (doc.characterClassesClassSubpanel.children.length > 1) doc.characterClassesClassSubpanel.lastChild.remove();
     for (let c of Object.keys(classData)) {
+        let data = null;
+        for (let version of classData[c].class) {
+            if (version.basicRules2024) {
+                data = version;
+                break;
+            }
+        }
+        if (data === null) {
+            console.log("2024 data not found for class " + c);
+            continue;
+        }
+
         // first generate a header with the class name
         let tab = document.createElement("div");
-        tab.classList.add("characterEquippedClassTab");
+        tab.classList.add("characterEquippedClassTab", "characterEquippedClassTabDisabled");
         
         let header = document.createElement("div");
         header.classList.add("characterEquippedClassHeader", "center");
-        header.innerText = c[0].toUpperCase() + c.substring(1);
+        header.innerText = "○ " + c[0].toUpperCase() + c.substring(1);
 
+        header.addEventListener("click", function() {
+            if (tab.classList.contains("characterEquippedClassTabEnabled")) {
+                tab.classList.remove("characterEquippedClassTabEnabled");
+                tab.classList.add("characterEquippedClassTabDisabled");
+                header.innerText = "○" + header.innerText.substring(1);
+            } else {
+                tab.classList.add("characterEquippedClassTabEnabled");
+                tab.classList.remove("characterEquippedClassTabDisabled");
+                header.innerText = "●" + header.innerText.substring(1);
+            }
+        });
         tab.appendChild(header);
+
+        // go through and use the json to create a ton of tabs for every level of the class
+        for (let feature of data.classFeatures) {
+            if (typeof feature !== "string") continue;
+            let subtab = document.createElement("div");
+            subtab.classList.add("characterEquippedClassSubTab", "characterEquippedClassTabDisabled");
+
+            let e = document.createElement("div");
+            e.classList.add("characterEquippedClassSubHeader", "center");
+            e.innerText = "○ " + feature;
+            e.addEventListener("click", function() {
+                if (subtab.classList.contains("characterEquippedClassTabEnabled")) {
+                    subtab.classList.remove("characterEquippedClassTabEnabled");
+                    subtab.classList.add("characterEquippedClassTabDisabled");
+                    e.innerText = "○" + e.innerText.substring(1);
+                } else {
+                    subtab.classList.add("characterEquippedClassTabEnabled");
+                    subtab.classList.remove("characterEquippedClassTabDisabled");
+                    e.innerText = "●" + e.innerText.substring(1);
+                }
+            });
+            subtab.appendChild(e);
+
+            // add all the rules text to the subtab thing, as well as any player input menus
+            for (let i of classData[c].classFeature) {
+                if (i.name !== feature.split("|")[0] || i.level !== parseInt(feature.split("|")[3])) continue;
+                /*let ruleDescription = document.createElement("p");
+                ruleDescription.classList.add("characterEquippedClassDescription", "center");
+                ruleDescription.innerText = i.entries[0];*/
+                extractEntries(i.entries, subtab, {
+                    header: ["characterEquippedClassDescription", "characterEquippedClassDescriptionHeader", "center"],
+                    content: [],
+                    general: ["characterEquippedClassDescription", "center"],
+                    dontChangeParent: true
+                });
+                //subtab.appendChild(ruleDescription);
+            }
+
+            tab.appendChild(subtab);
+        }
+
         doc.characterClassesClassSubpanel.appendChild(tab);
     }
 }
@@ -628,7 +696,7 @@ let itemData = null;
 async function fetchProtocol() {
     itemData = await (await fetch("./json/items.json")).json();
     character.inventory = [];
-    for (let item of itemData.item) if (item.basicRules2024) character.inventory.push(item);
+    for (let item of itemData.item) /*if (item.basicRules2024)*/ character.inventory.push(item);
     updateInventory(character.inventory);
 }
 await fetchProtocol();

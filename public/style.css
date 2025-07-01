@@ -780,6 +780,46 @@ div {
     background-color: var(--grey);
 }
 
+.characterEquippedClassSubTab {
+    position: relative;
+    width: 60vw;
+    left: 5vw;
+    margin-top: 3vh;
+    margin-bottom: 2vh;
+    border: solid 0.5vmin var(--black);
+    background-color: var(--black);
+}
+
+.characterEquippedClassSubHeader {
+    position: relative;
+    width: 60vw;
+    height: 6vh;
+    background-color: var(--veryDarkGrey);
+    display: flex;
+    align-items: center;
+    padding-left: 1vw;
+    border-bottom: solid 1vmin var(--black);
+}
+.characterEquippedClassSubHeader:hover {
+    background-color: var(--darkGrey);
+}
+.characterEquippedClassSubHeader:active {
+    background-color: var(--grey);
+}
+
+.characterEquippedClassDescription {
+    position: relative;
+    width: 60vw;
+    height: auto;
+    background-color: var(--darkGrey);
+    display: flex;
+    text-align: left;
+    padding: 1vw;
+}
+.characterEquippedClassDescriptionHeader {
+    background-color: var(--veryDarkBlue);
+}
+
 /* The popup menu can be called, and appears during alerts, confirmations, and notifications */
 #popupMenu {
     width: 50vw;

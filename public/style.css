@@ -100,6 +100,10 @@ div {
     background-color: var(--black);
 }
 
+span {
+    position: relative;
+}
+
 /* Flex align, for centering text in a div */
 .centerFlexAlign {
     display: flex;
@@ -548,6 +552,7 @@ div {
     background-color: var(--darkGrey);
     overflow-y: scroll;
 }
+
 /* The buttons for the inventory menu */
 
 
@@ -925,4 +930,45 @@ div {
     left: 5vw;
     text-align: center;
     z-index: 3;
+}
+
+/* Whenever text with a reference is hovered */
+.spanHoldingP {
+    height: auto;
+    position: relative;
+}
+
+.characterReferenceHoverText {
+    color: var(--red);
+    position: relative;
+    background-color: yellow;
+}
+
+/* The menu for the menu that pops up whenever clicking a keyword */
+.characterReferenceSideMenu {
+    position: absolute;
+    left: 0vw;
+    width: 22vw;
+    top: 0;
+    height: 100vh;
+    background-color: var(--darkGrey);
+    z-index: 3;
+    overflow-y: scroll;
+}
+.characterReferenceSideMenu:hover {
+    background-color: var(--veryDarkGrey);
+}
+
+.characterReferenceSideMenuClosed {
+    left: -25vw;
+}
+
+.characterReferenceSideMenuHeader {
+    background-color: var(--veryDarkBlue);
+}
+.characterReferenceSideMenuObject {
+    width: 100%;
+    position: relative;
+    margin-bottom: 2vmin;
+    padding: 1vmin;
 }

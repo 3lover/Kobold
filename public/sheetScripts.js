@@ -16,7 +16,8 @@ export const doc = {
     popupMenuSingleButton: document.getElementById("popupMenuSingleButton"),
     popupMenuLeftDoubleButton: document.getElementById("popupMenuLeftDoubleButton"),
     popupMenuRightDoubleButton: document.getElementById("popupMenuRightDoubleButton"),
-    popupMenuInput: document.getElementById("popupMenuInput")
+    popupMenuInput: document.getElementById("popupMenuInput"),
+    characterReferenceSideMenu: document.getElementById("characterReferenceSideMenu"),
 }
 
 // basic data storage for characters, and the currently viewed character
@@ -257,6 +258,12 @@ for (let tab of classesSubsectionTabs) tab.addEventListener("click", function(e)
     }
 });
 
+doc.characterReferenceSideMenu.addEventListener("contextmenu", function(e) {
+    doc.characterReferenceSideMenu.classList.add("characterReferenceSideMenuClosed");
+});
+
+//_ Character sheet functionalities
+
 // when the user opens the right click menu, this adds all the options for an item
 function populateRightClick(buttons = []) {
     while (doc.contextMenu.children.length > 0) doc.contextMenu.lastChild.remove();
@@ -269,6 +276,57 @@ function populateRightClick(buttons = []) {
 
         doc.contextMenu.appendChild(contextBtn);
     }
+}
+
+// we have a giant set of req for this, so we import a ton of data from 5etools jsons
+async function fetchReferenceData(file, objectName) {
+    return (await (await fetch(file)).json())[objectName];
+}
+let referenceData = {
+    "@action": await fetchReferenceData("./json/data/actions.json", "action")
+};
+
+// goes through and returns a p element for text with reference brackets
+function parseBrackets(text) {
+    let split = text.split(/{|}/);
+    let final = document.createElement("p");
+    final.classList.add("spanHoldingP");
+    let parity = 1;
+    while (split.length > 0) {
+        parity *= -1;
+        if (parity === -1) {
+            final.appendChild(document.createTextNode(split.shift()));
+            continue;
+        }
+        let loc = split[0].split("|");
+        // find the reference if applicable
+        if (referenceData[loc[0].split(" ")[0]] !== undefined) {
+            let dataSheet = referenceData[loc[0].split(" ")[0]];
+            for (let n of dataSheet) {
+                if (n.name !== loc[0].split(" ")[1] || !n.reprintedAs) continue;
+                let span = document.createElement("span");
+                span.classList.add("characterReferenceHoverText");
+                span.innerText = n.name;
+                span.addEventListener("click", function(e) {
+                    while (doc.characterReferenceSideMenu.children.length > 1) doc.characterReferenceSideMenu.lastChild.remove();
+                    let header = document.createElement("h1");
+                    header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
+                    header.innerText = n.name;
+                    doc.characterReferenceSideMenu.appendChild(header);
+                    extractEntries(n.entries, doc.characterReferenceSideMenu, {
+                        header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
+                        content: [],
+                        general: ["characterReferenceSideMenuObject", "center"],
+                        dontChangeParent: true
+                    });
+                    doc.characterReferenceSideMenu.classList.remove("characterReferenceSideMenuClosed");
+                });
+                final.appendChild(span);
+            }
+        }
+        split.shift();
+    }
+    return final;
 }
 
 // extracts the entries and creates text objects for them
@@ -289,16 +347,27 @@ function extractEntries(entries, parent, extractClasses = {header: [], content: 
         switch (entry.type) {
             case "entries": {
                 extractEntries(entry.entries, extractClasses.dontChangeParent ? parent : e, extractClasses, depth + 1);
+                if (extractClasses.dontChangeParent) continue;
                 break;
             }
             case "list": {
+                e.innerText = "List Here";
+                e.style.backgroundColor = "var(--red)";
                 break;
             }
             case "table": {
+                e.innerText = "Table Here";
+                e.style.backgroundColor = "var(--red)";
+                break;
+            }
+            case undefined: {
+                // if we have pure text leftover, we need to run the text through our parser to link bracketed text
+                e.appendChild(parseBrackets(entry));
                 break;
             }
             default: {
-                e.innerText = entry;
+                e.style.backgroundColor = "var(--red)";
+                e.innerText = entry.type;
                 break;
             }
         }
@@ -468,16 +537,12 @@ function createClassDropdowns() {
             // add all the rules text to the subtab thing, as well as any player input menus
             for (let i of classData[c].classFeature) {
                 if (i.name !== feature.split("|")[0] || i.level !== parseInt(feature.split("|")[3])) continue;
-                /*let ruleDescription = document.createElement("p");
-                ruleDescription.classList.add("characterEquippedClassDescription", "center");
-                ruleDescription.innerText = i.entries[0];*/
                 extractEntries(i.entries, subtab, {
                     header: ["characterEquippedClassDescription", "characterEquippedClassDescriptionHeader", "center"],
                     content: [],
                     general: ["characterEquippedClassDescription", "center"],
                     dontChangeParent: true
                 });
-                //subtab.appendChild(ruleDescription);
             }
 
             tab.appendChild(subtab);

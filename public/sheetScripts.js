@@ -301,6 +301,7 @@ function parseBrackets(text) {
         let loc = split[0].split("|");
         // find the reference if applicable
         if (referenceData[loc[0].split(" ")[0]] !== undefined) {
+            console.log(text);
             let dataSheet = referenceData[loc[0].split(" ")[0]];
             for (let n of dataSheet) {
                 if (n.name !== loc[0].split(" ")[1] || !n.reprintedAs) continue;
@@ -308,7 +309,7 @@ function parseBrackets(text) {
                 span.classList.add("characterReferenceHoverText");
                 span.innerText = n.name;
                 span.addEventListener("click", function(e) {
-                    while (doc.characterReferenceSideMenu.children.length > 1) doc.characterReferenceSideMenu.lastChild.remove();
+                    while (doc.characterReferenceSideMenu.children.length > 0) doc.characterReferenceSideMenu.lastChild.remove();
                     let header = document.createElement("h1");
                     header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
                     header.innerText = n.name;
@@ -323,6 +324,14 @@ function parseBrackets(text) {
                 });
                 final.appendChild(span);
             }
+        }
+        else {
+            let errorBracket = document.createElement("span");
+            errorBracket.classList.add("characterReferenceHoverText");
+            errorBracket.innerText = `Missing Reference!`;
+            errorBracket.style.backgroundColor = "red";
+            errorBracket.style.color = "black";
+            final.appendChild(errorBracket);
         }
         split.shift();
     }

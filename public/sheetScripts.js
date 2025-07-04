@@ -283,7 +283,11 @@ async function fetchReferenceData(file, objectName) {
     return (await (await fetch(file)).json())[objectName];
 }
 let referenceData = {
-    "@action": await fetchReferenceData("./json/data/actions.json", "action")
+    "@action": await fetchReferenceData("./json/data/actions.json", "action"),
+    "@condition": await fetchReferenceData("./json/data/conditionsdiseases.json", "condition"),
+    "@disease": await fetchReferenceData("./json/data/conditionsdiseases.json", "disease"),
+    "@status": await fetchReferenceData("./json/data/conditionsdiseases.json", "status"),
+    "@variantrule": await fetchReferenceData("./json/data/variantrules.json", "variantrule"),
 };
 
 // goes through and returns a p element for text with reference brackets
@@ -301,10 +305,11 @@ function parseBrackets(text) {
         let loc = split[0].split("|");
         // find the reference if applicable
         if (referenceData[loc[0].split(" ")[0]] !== undefined) {
-            console.log(text);
             let dataSheet = referenceData[loc[0].split(" ")[0]];
+            let refFound = false;
             for (let n of dataSheet) {
-                if (n.name !== loc[0].split(" ")[1] || !n.reprintedAs) continue;
+                if (n.name.toLowerCase() !== loc[0].substring(loc[0].indexOf(" ") + 1).toLowerCase() || n.reprintedAs) continue;
+                refFound = true;
                 let span = document.createElement("span");
                 span.classList.add("characterReferenceHoverText");
                 span.innerText = n.name;
@@ -324,6 +329,15 @@ function parseBrackets(text) {
                 });
                 final.appendChild(span);
             }
+            if (!refFound) {
+                let errorBracket = document.createElement("span");
+                errorBracket.classList.add("characterReferenceHoverText");
+                errorBracket.innerText = loc[0].substring(loc[0].indexOf(" ") + 1);
+                errorBracket.style.backgroundColor = "green";
+                errorBracket.style.color = "black";
+                console.log(`no reference found for ${loc[0]}`);
+                final.appendChild(errorBracket);
+            }
         }
         else {
             let errorBracket = document.createElement("span");
@@ -331,6 +345,7 @@ function parseBrackets(text) {
             errorBracket.innerText = `Missing Reference!`;
             errorBracket.style.backgroundColor = "red";
             errorBracket.style.color = "black";
+            console.log(loc[0].split(" ")[0]);
             final.appendChild(errorBracket);
         }
         split.shift();
@@ -371,6 +386,10 @@ function extractEntries(entries, parent, extractClasses = {header: [], content: 
             }
             case undefined: {
                 // if we have pure text leftover, we need to run the text through our parser to link bracketed text
+                if (entry.includes("@i ")) {
+                    console.log(`discarding options rule: ${entry}`);
+                    break;
+                }
                 e.appendChild(parseBrackets(entry));
                 break;
             }
@@ -495,10 +514,7 @@ function createClassDropdowns() {
                 break;
             }
         }
-        if (data === null) {
-            console.log("2024 data not found for class " + c);
-            continue;
-        }
+        if (data === null) continue;
 
         // first generate a header with the class name
         let tab = document.createElement("div");
@@ -545,7 +561,7 @@ function createClassDropdowns() {
 
             // add all the rules text to the subtab thing, as well as any player input menus
             for (let i of classData[c].classFeature) {
-                if (i.name !== feature.split("|")[0] || i.level !== parseInt(feature.split("|")[3])) continue;
+                if (i.name !== feature.split("|")[0] || i.level !== parseInt(feature.split("|")[3]) || !i.basicRules2024) continue;
                 extractEntries(i.entries, subtab, {
                     header: ["characterEquippedClassDescription", "characterEquippedClassDescriptionHeader", "center"],
                     content: [],
@@ -781,7 +797,6 @@ async function fetchClass(name, final) {
     classData[name] = classInfo;
     if (final) {
         createClassDropdowns();
-        console.log("done");
     }
 }
 for (let c of classNames) {

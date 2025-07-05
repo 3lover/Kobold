@@ -262,6 +262,29 @@ doc.characterReferenceSideMenu.addEventListener("contextmenu", function(e) {
     doc.characterReferenceSideMenu.classList.add("characterReferenceSideMenuClosed");
 });
 
+doc.characterReferenceSideMenu.addEventListener("mousemove", function(e) {
+    if (Math.abs(e.clientX - doc.characterReferenceSideMenu.getBoundingClientRect().right) < 20) {
+        doc.characterReferenceSideMenu.classList.add("characterSideMenuDraggable");
+    } else doc.characterReferenceSideMenu.classList.remove("characterSideMenuDraggable");
+});
+doc.characterReferenceSideMenu.addEventListener("mousedown", function(e) {
+    function dragging(e2) {
+        e2.preventDefault();
+        doc.characterReferenceSideMenu.classList.add("characterSideMenuDragging");
+        doc.characterReferenceSideMenu.style.width = `${e2.clientX}px`;
+    }
+    function removedragging(e2) {
+        document.removeEventListener("mousemove", dragging);
+        document.removeEventListener("mouseup", removedragging);
+        doc.characterReferenceSideMenu.classList.remove("characterSideMenuDragging");
+    }
+    if (Math.abs(e.clientX - doc.characterReferenceSideMenu.getBoundingClientRect().right) < 20) {
+        e.preventDefault();
+        document.addEventListener("mousemove", dragging);
+        document.addEventListener("mouseup", removedragging);
+    }
+});
+
 //_ Character sheet functionalities
 
 // when the user opens the right click menu, this adds all the options for an item

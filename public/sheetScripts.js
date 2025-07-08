@@ -271,7 +271,7 @@ doc.characterReferenceSideMenu.addEventListener("mousedown", function(e) {
     function dragging(e2) {
         e2.preventDefault();
         doc.characterReferenceSideMenu.classList.add("characterSideMenuDragging");
-        doc.characterReferenceSideMenu.style.width = `${e2.clientX}px`;
+        doc.characterReferenceSideMenu.style.width = `${Math.max(e2.clientX, 100)}px`;
     }
     function removedragging(e2) {
         document.removeEventListener("mousemove", dragging);
@@ -311,7 +311,14 @@ let referenceData = {
     "@disease": await fetchReferenceData("./json/data/conditionsdiseases.json", "disease"),
     "@status": await fetchReferenceData("./json/data/conditionsdiseases.json", "status"),
     "@variantrule": await fetchReferenceData("./json/data/variantrules.json", "variantrule"),
+    "@feat": await fetchReferenceData("./json/data/feats.json", "feat"),
+    "@item": await fetchReferenceData("./json/data/items.json", "item"),
 };
+
+// updates info into the reference side holder
+function openReference() {
+
+}
 
 // goes through and returns a p element for text with reference brackets
 function parseBrackets(text) {
@@ -362,14 +369,57 @@ function parseBrackets(text) {
                 final.appendChild(errorBracket);
             }
         }
-        else {
-            let errorBracket = document.createElement("span");
-            errorBracket.classList.add("characterReferenceHoverText");
-            errorBracket.innerText = `Missing Reference!`;
-            errorBracket.style.backgroundColor = "red";
-            errorBracket.style.color = "black";
-            console.log(loc[0].split(" ")[0]);
-            final.appendChild(errorBracket);
+        else switch (loc[0].split(" ")[0]) {
+            case "@filter": {
+                // create a list of every single item of the filtered type
+                if (loc[1] === "items") {
+                    let span = document.createElement("span");
+                    span.classList.add("characterReferenceHoverText");
+                    span.innerText = loc[0].substring(loc[0].indexOf(" ") + 1);
+                    span.addEventListener("click", function(e) {
+                        while (doc.characterReferenceSideMenu.children.length > 0) doc.characterReferenceSideMenu.lastChild.remove();
+                        let header = document.createElement("h1");
+                        header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
+                        let categoryName = loc[2].substring(5).split(";")[0];
+                        header.innerText = `${categoryName[0].toUpperCase() + categoryName.substring(1)}s`;
+                        doc.characterReferenceSideMenu.appendChild(header);
+                        for (let i of referenceData["@item"]) {
+                            if (i.weaponCategory !== loc[2].substring(5).split(" ")[0]) continue;
+                            let filteredItem = document.createElement("p");
+                            filteredItem.classList.add("characterReferenceSideMenuObject", "center", "characterReferenceHoverText");
+                            filteredItem.innerHTML = i.name;
+                            filteredItem.addEventListener("click", function(e) {
+                                while (doc.characterReferenceSideMenu.children.length > 0) doc.characterReferenceSideMenu.lastChild.remove();
+                                let header = document.createElement("h1");
+                                header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
+                                header.innerText = i.name;
+                                doc.characterReferenceSideMenu.appendChild(header);
+                                extractEntries(i.entries, doc.characterReferenceSideMenu, {
+                                    header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
+                                    content: [],
+                                    general: ["characterReferenceSideMenuObject", "center"],
+                                    dontChangeParent: true
+                                });
+                            });
+                            doc.characterReferenceSideMenu.appendChild(filteredItem);
+                        }
+                        doc.characterReferenceSideMenu.classList.remove("characterReferenceSideMenuClosed");
+                    });
+                    final.appendChild(span);
+                    break;
+                }
+                // purposefully skip to default if we don't break by recognizing the filter list
+            }
+            default: {
+                let errorBracket = document.createElement("span");
+                errorBracket.classList.add("characterReferenceHoverText");
+                errorBracket.innerText = `Missing Reference!`;
+                errorBracket.style.backgroundColor = "red";
+                errorBracket.style.color = "black";
+                console.log(loc[0].split(" ")[0]);
+                final.appendChild(errorBracket);
+                break;
+            }
         }
         split.shift();
     }

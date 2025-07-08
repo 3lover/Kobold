@@ -842,7 +842,7 @@ span {
     height: 100vh;
     top: -25vh;
     left: -25vw;
-    opacity: 60%;
+    opacity: 0.6;
     background-color: var(--black);
 }
 
@@ -939,9 +939,15 @@ span {
 }
 
 .characterReferenceHoverText {
-    color: var(--red);
+    color: var(--white);
     position: relative;
-    background-color: yellow;
+    background-color: var(--grey);
+}
+.characterReferenceHoverText:hover {
+    text-decoration: underline;
+}
+.characterReferenceHoverText:active {
+    color: var(--red);
 }
 
 /* The menu for the menu that pops up whenever clicking a keyword */
@@ -954,6 +960,7 @@ span {
     background-color: var(--darkGrey);
     z-index: 3;
     overflow-y: scroll;
+    border-right: 1vmin var(--white) solid;
     opacity: 1;
 }
 .characterReferenceSideMenu:hover {
@@ -968,7 +975,7 @@ span {
     cursor: ew-resize;
 }
 .characterSideMenuDragging {
-    opacity: 0.5;
+    opacity: 0.8;
     transition: 0s;
 }
 

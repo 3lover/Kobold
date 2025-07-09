@@ -18,6 +18,7 @@ export const doc = {
     popupMenuRightDoubleButton: document.getElementById("popupMenuRightDoubleButton"),
     popupMenuInput: document.getElementById("popupMenuInput"),
     characterReferenceSideMenu: document.getElementById("characterReferenceSideMenu"),
+    diceRollPopupHolder: document.getElementById("diceRollPopupHolder"),
 }
 
 // basic data storage for characters, and the currently viewed character
@@ -313,11 +314,78 @@ let referenceData = {
     "@variantrule": await fetchReferenceData("./json/data/variantrules.json", "variantrule"),
     "@feat": await fetchReferenceData("./json/data/feats.json", "feat"),
     "@item": await fetchReferenceData("./json/data/items.json", "item"),
+    "@skill": await fetchReferenceData("./json/data/skills.json", "skill"),
 };
 
-// updates info into the reference side holder
-function openReference() {
+// creates a popup on the lower left showing the roll and result from some syntax
+function createDiceRoll(syntax) {
+    let diceGroups = syntax.split(" ");
+    let outcome = 0;
+    let rolls = [];
+    let face = 0;
+    for (let d of diceGroups) {
+        let num = parseInt(d.substring(0, d.indexOf("d")));
+        let faces = parseInt(d.substring(d.indexOf("d") + 1));
+        for (let i = 0; i < num; i++) {
+            let roll = dice(faces);
+            outcome += roll;
+            rolls.push(roll);
+            face = faces;
+        }
+    }
 
+    while (doc.diceRollPopupHolder.children.length > 3) doc.diceRollPopupHolder.firstChild.remove();
+
+    let rollPopup = document.createElement("div");
+    rollPopup.classList.add("diceRollPopup");
+    
+    let rollInfo = document.createElement("p");
+    rollInfo.classList.add("diceRollPopupInfo");
+    if (rolls.length > 1) {
+        rollInfo.innerHTML = `Rolled ${syntax}<br>`;
+        for (let i = 0; i < rolls.length; i++) {
+            rollInfo.innerHTML += rolls[i];
+            if (i + 1 < rolls.length) rollInfo.innerHTML += " + ";
+            else rollInfo.innerHTML += " =";
+        }
+    } else rollInfo.innerHTML = `Rolled a d${face}`;
+    rollPopup.appendChild(rollInfo);
+
+    let rollValue = document.createElement("h1");
+    rollValue.classList.add("diceRollPopupValue");
+    rollValue.innerText = outcome;
+    rollPopup.appendChild(rollValue);
+
+    rollPopup.addEventListener("click", function(e) {
+        if (doc.diceRollPopupHolder.children.length === 4) doc.diceRollPopupHolder.firstChild.remove();
+        doc.diceRollPopupHolder.removeChild(rollPopup);
+    });
+
+    doc.diceRollPopupHolder.appendChild(rollPopup);
+
+    requestAnimationFrame(function() {
+        rollPopup.classList.add("diceRollPopupOpened");
+    });
+}
+createDiceRoll("9d20")
+
+// updates info into the reference side holder
+function openReference(elmType, elmClasses, text, clickFunction, parent, override = false) {
+    let elm = document.createElement(elmType);
+    for (let c of elmClasses) elm.classList.add(c);
+    elm.innerText = text;
+    elm.addEventListener("click", function(e) {
+        if (!override) {
+            while (doc.characterReferenceSideMenu.children.length > 0) doc.characterReferenceSideMenu.lastChild.remove();
+            let header = document.createElement("h1");
+            header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
+            header.innerText = `${text[0].toUpperCase() + text.substring(1)}s`;
+            doc.characterReferenceSideMenu.appendChild(header);
+            doc.characterReferenceSideMenu.classList.remove("characterReferenceSideMenuClosed");
+        }
+        clickFunction(e);
+    });
+    parent.appendChild(elm);
 }
 
 // goes through and returns a p element for text with reference brackets
@@ -340,24 +408,14 @@ function parseBrackets(text) {
             for (let n of dataSheet) {
                 if (n.name.toLowerCase() !== loc[0].substring(loc[0].indexOf(" ") + 1).toLowerCase() || n.reprintedAs) continue;
                 refFound = true;
-                let span = document.createElement("span");
-                span.classList.add("characterReferenceHoverText");
-                span.innerText = n.name;
-                span.addEventListener("click", function(e) {
-                    while (doc.characterReferenceSideMenu.children.length > 0) doc.characterReferenceSideMenu.lastChild.remove();
-                    let header = document.createElement("h1");
-                    header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
-                    header.innerText = n.name;
-                    doc.characterReferenceSideMenu.appendChild(header);
+                openReference("span", ["characterReferenceHoverText"], n.name, function(e) {
                     extractEntries(n.entries, doc.characterReferenceSideMenu, {
                         header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
                         content: [],
                         general: ["characterReferenceSideMenuObject", "center"],
                         dontChangeParent: true
                     });
-                    doc.characterReferenceSideMenu.classList.remove("characterReferenceSideMenuClosed");
-                });
-                final.appendChild(span);
+                }, final);
             }
             if (!refFound) {
                 let errorBracket = document.createElement("span");
@@ -373,43 +431,45 @@ function parseBrackets(text) {
             case "@filter": {
                 // create a list of every single item of the filtered type
                 if (loc[1] === "items") {
-                    let span = document.createElement("span");
-                    span.classList.add("characterReferenceHoverText");
-                    span.innerText = loc[0].substring(loc[0].indexOf(" ") + 1);
-                    span.addEventListener("click", function(e) {
-                        while (doc.characterReferenceSideMenu.children.length > 0) doc.characterReferenceSideMenu.lastChild.remove();
-                        let header = document.createElement("h1");
-                        header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
-                        let categoryName = loc[2].substring(5).split(";")[0];
-                        header.innerText = `${categoryName[0].toUpperCase() + categoryName.substring(1)}s`;
-                        doc.characterReferenceSideMenu.appendChild(header);
+                    openReference("span", ["characterReferenceHoverText"], loc[0].substring(loc[0].indexOf(" ") + 1), function(e) {
                         for (let i of referenceData["@item"]) {
                             if (i.weaponCategory !== loc[2].substring(5).split(" ")[0]) continue;
-                            let filteredItem = document.createElement("p");
-                            filteredItem.classList.add("characterReferenceSideMenuObject", "center", "characterReferenceHoverText");
-                            filteredItem.innerHTML = i.name;
-                            filteredItem.addEventListener("click", function(e) {
-                                while (doc.characterReferenceSideMenu.children.length > 0) doc.characterReferenceSideMenu.lastChild.remove();
-                                let header = document.createElement("h1");
-                                header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
-                                header.innerText = i.name;
-                                doc.characterReferenceSideMenu.appendChild(header);
+                            openReference("p", ["characterReferenceHoverText", "characterReferenceSideMenuObject"], i.name, function(e) {
                                 extractEntries(i.entries, doc.characterReferenceSideMenu, {
                                     header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
                                     content: [],
                                     general: ["characterReferenceSideMenuObject", "center"],
                                     dontChangeParent: true
                                 });
-                            });
-                            doc.characterReferenceSideMenu.appendChild(filteredItem);
+                            }, doc.characterReferenceSideMenu);
                         }
-                        doc.characterReferenceSideMenu.classList.remove("characterReferenceSideMenuClosed");
-                    });
-                    final.appendChild(span);
-                    break;
-                }
-                // purposefully skip to default if we don't break by recognizing the filter list
+                    }, final);
+                } else console.log("unrecognized filter!", loc[1]);
+                break;
             }
+            case "@5etools": {
+                if (loc[0].split(" ")[1] === "feat") {
+                    openReference("span", ["characterReferenceHoverText"], loc[0].substring(loc[0].indexOf(" ") + 1), function(e) {
+                        for (let i of referenceData["@feat"]) {
+                            openReference("p", ["characterReferenceHoverText", "characterReferenceSideMenuObject"], i.name, function(e) {
+                                extractEntries(i.entries, doc.characterReferenceSideMenu, {
+                                    header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
+                                    content: [],
+                                    general: ["characterReferenceSideMenuObject", "center"],
+                                    dontChangeParent: true
+                                });
+                            }, doc.characterReferenceSideMenu);
+                        }
+                    }, final);
+                } else console.log("unrecognized 5etools reference!", loc[0].split(" ")[1]);
+                break;
+            }
+            case "@damage": {
+                openReference("span", ["characterReferenceHoverText"], loc[0].substring(loc[0].indexOf(" ") + 1), function(e) {
+                    createDiceRoll(loc[0].substring(loc[0].indexOf(" ") + 1));
+                }, final, true);
+                break;
+            };
             default: {
                 let errorBracket = document.createElement("span");
                 errorBracket.classList.add("characterReferenceHoverText");

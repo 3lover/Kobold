@@ -315,7 +315,20 @@ let referenceData = {
     "@feat": await fetchReferenceData("./json/data/feats.json", "feat"),
     "@item": await fetchReferenceData("./json/data/items.json", "item"),
     "@skill": await fetchReferenceData("./json/data/skills.json", "skill"),
+    "@spell": await fetchReferenceData("./json/data/spells/spells-xphb.json", "spell"),
+    "@itemMastery": await fetchReferenceData("./json/masteryProperties.json", "itemMastery"),
+    "@optionalfeature": await fetchReferenceData("./json/data/optionalfeatures.json", "optionalfeature"),
+    "@sense": await fetchReferenceData("./json/data/senses.json", "sense"),
+    "book-phb": await fetchReferenceData("./json/data/book/book-phb.json", "data"),
 };
+let creatureData = {};
+async function fetchCreatureData() {
+    let indexing = (await (await fetch("./json/data/bestiary/index.json")).json());
+    for (let i of Object.keys(indexing)) {
+        creatureData[i] = await fetchReferenceData(`./json/data/bestiary/${indexing[i]}`, "monster");
+    }
+}
+await fetchCreatureData();
 
 // creates a popup on the lower left showing the roll and result from some syntax
 function createDiceRoll(syntax) {
@@ -324,7 +337,7 @@ function createDiceRoll(syntax) {
     let rolls = [];
     let face = 0;
     for (let d of diceGroups) {
-        let num = parseInt(d.substring(0, d.indexOf("d")));
+        let num = parseInt(d.substring(0, d.indexOf("d")) || 1);
         let faces = parseInt(d.substring(d.indexOf("d") + 1));
         for (let i = 0; i < num; i++) {
             let roll = dice(faces);
@@ -367,7 +380,6 @@ function createDiceRoll(syntax) {
         rollPopup.classList.add("diceRollPopupOpened");
     });
 }
-createDiceRoll("9d20")
 
 // updates info into the reference side holder
 function openReference(elmType, elmClasses, text, clickFunction, parent, override = false) {
@@ -379,7 +391,7 @@ function openReference(elmType, elmClasses, text, clickFunction, parent, overrid
             while (doc.characterReferenceSideMenu.children.length > 0) doc.characterReferenceSideMenu.lastChild.remove();
             let header = document.createElement("h1");
             header.classList.add("characterReferenceSideMenuHeader", "characterReferenceSideMenuObject");
-            header.innerText = `${text[0].toUpperCase() + text.substring(1)}s`;
+            header.innerText = `${text[0].toUpperCase() + text.substring(1)}`;
             doc.characterReferenceSideMenu.appendChild(header);
             doc.characterReferenceSideMenu.classList.remove("characterReferenceSideMenuClosed");
         }
@@ -393,7 +405,7 @@ function parseBrackets(text) {
     let split = text.split(/{|}/);
     let final = document.createElement("p");
     final.classList.add("spanHoldingP");
-    let parity = 1;
+    let parity = 1
     while (split.length > 0) {
         parity *= -1;
         if (parity === -1) {
@@ -444,7 +456,76 @@ function parseBrackets(text) {
                             }, doc.characterReferenceSideMenu);
                         }
                     }, final);
+                } else if (loc[1] === "feats") {
+                    openReference("span", ["characterReferenceHoverText"], loc[0].substring(loc[0].indexOf(" ") + 1), function(e) {
+                        for (let i of referenceData["@feat"]) {
+                            if (i.category !== loc[2].substring(9)) continue;
+                            openReference("p", ["characterReferenceHoverText", "characterReferenceSideMenuObject"], i.name, function(e) {
+                                extractEntries(i.entries, doc.characterReferenceSideMenu, {
+                                    header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
+                                    content: [],
+                                    general: ["characterReferenceSideMenuObject", "center"],
+                                    dontChangeParent: true
+                                });
+                            }, doc.characterReferenceSideMenu);
+                        }
+                    }, final);
+                } else if (loc[1] === "spells") {
+                    openReference("span", ["characterReferenceHoverText"], loc[0].substring(loc[0].indexOf(" ") + 1), function(e) {
+                        for (let i of referenceData["book-phb"]) {
+                            if (i.name !== "Spells" && i.page !== 207) continue;
+                            //{@filter Bard spell list|spells|class=Bard}
+                            for (let j of i.entries) {
+                                if (!j.entries) continue;
+                                if (j.name.split(" ")[0] !== loc[2].substring(6)) continue;
+                                for (let k of j.entries) {
+                                    let header = document.createElement("p");
+                                    header.classList.add("characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center");
+                                    header.innerText = k.name;
+                                    doc.characterReferenceSideMenu.appendChild(header);
+                                    for (let l of k.items) {
+                                        extractEntries([l], doc.characterReferenceSideMenu, {
+                                            header: ["characterReferenceHoverText", "characterReferenceSideMenuObject"],
+                                            content: [],
+                                            general: ["characterReferenceHoverText", "characterReferenceSideMenuObject"],
+                                            dontChangeParent: true
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }, final);
+                } else if (loc[1] === "optionalfeatures") {
+                    openReference("span", ["characterReferenceHoverText"], loc[0].substring(loc[0].indexOf(" ") + 1), function(e) {
+                        for (let i of referenceData["@optionalfeature"]) {
+                            if (!i.featureType.includes(loc[2].substring(13)) || !i.srd52) continue;
+                            openReference("p", ["characterReferenceHoverText", "characterReferenceSideMenuObject"], i.name, function(e) {
+                                extractEntries(i.entries, doc.characterReferenceSideMenu, {
+                                    header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
+                                    content: [],
+                                    general: ["characterReferenceSideMenuObject", "center"],
+                                    dontChangeParent: true
+                                });
+                            }, doc.characterReferenceSideMenu);
+                        }
+                    }, final);
                 } else console.log("unrecognized filter!", loc[1]);
+                break;
+            }
+            case "@creature": {
+                let dataSheet = creatureData[loc[1]];
+                for (let n of dataSheet) {
+                    if (n.name.toLowerCase() !== loc[0].substring(loc[0].indexOf(" ") + 1).toLowerCase() || n.reprintedAs) continue;
+                    openReference("span", ["characterReferenceHoverText"], n.name, function(e) {
+                        /*extractEntries(n.entries, doc.characterReferenceSideMenu, {
+                            header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
+                            content: [],
+                            general: ["characterReferenceSideMenuObject", "center"],
+                            dontChangeParent: true
+                        });*/
+                        //! come back to this later and open up something for the creature, maybe a bestiary sheet
+                    }, final);
+                }
                 break;
             }
             case "@5etools": {
@@ -470,13 +551,27 @@ function parseBrackets(text) {
                 }, final, true);
                 break;
             };
+            case "@dice": {
+                openReference("span", ["characterReferenceHoverText"], loc[0].substring(loc[0].indexOf(" ") + 1), function(e) {
+                    createDiceRoll(loc[0].substring(loc[0].indexOf(" ") + 1));
+                }, final, true);
+                break;
+            };
+            case "@dc": {
+                final.appendChild(document.createTextNode(`DC ${loc[0].split(" ")[1]}`));
+                break;
+            }
+            case "@book": {
+                final.appendChild(document.createTextNode(`${loc[0].substring(loc[0].indexOf(" ") + 1)} of the ${loc[1]}`));
+                break;
+            }
             default: {
                 let errorBracket = document.createElement("span");
                 errorBracket.classList.add("characterReferenceHoverText");
                 errorBracket.innerText = `Missing Reference!`;
                 errorBracket.style.backgroundColor = "red";
                 errorBracket.style.color = "black";
-                console.log(loc[0].split(" ")[0]);
+                console.log(loc[0].split(" ")[0], text);
                 final.appendChild(errorBracket);
                 break;
             }

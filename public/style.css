@@ -1004,6 +1004,7 @@ span {
     width: 20vw;
     background-color: transparent;
     z-index: 10;
+    pointer-events: none;
 }
 
 .diceRollPopup {
@@ -1015,6 +1016,7 @@ span {
     background-color: var(--veryDarkBlue);
     border: solid var(--white) 0.5vmin;
     transition: 0.5s;
+    pointer-events: auto;
 }
 .diceRollPopupOpened {
     height: 15vh;

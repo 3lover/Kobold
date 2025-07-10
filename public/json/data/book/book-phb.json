@@ -9701,7 +9701,7 @@
 							"columns": 4,
 							"items": [
 								"{@spell Dominate Monster}",
-								"{@spell Feeblemind}",
+								"{@spell Befuddlement}",
 								"{@spell Glibness}",
 								"{@spell Mind Blank}",
 								"{@spell Power Word Stun}"
@@ -10092,7 +10092,7 @@
 								"{@spell Antipathy/Sympathy}",
 								"{@spell Control Weather}",
 								"{@spell Earthquake}",
-								"{@spell Feeblemind}",
+								"{@spell Befuddlement}",
 								"{@spell Sunburst}",
 								"{@spell Tsunami}"
 							]
@@ -10653,7 +10653,7 @@
 							"items": [
 								"{@spell Demiplane}",
 								"{@spell Dominate Monster}",
-								"{@spell Feeblemind}",
+								"{@spell Befuddlement}",
 								"{@spell Glibness}",
 								"{@spell Power Word Stun}"
 							]
@@ -10944,7 +10944,7 @@
 								"{@spell Control Weather}",
 								"{@spell Demiplane}",
 								"{@spell Dominate Monster}",
-								"{@spell Feeblemind}",
+								"{@spell Befuddlement}",
 								"{@spell Incendiary Cloud}",
 								"{@spell Maze}",
 								"{@spell Mind Blank}",
@@ -11116,7 +11116,7 @@
 								"{@spell False Life}",
 								"{@spell Fear}",
 								"{@spell Feather Fall}",
-								"{@spell Feeblemind}",
+								"{@spell Befuddlement}",
 								"{@spell Feign Death}",
 								"{@spell Find Familiar}",
 								"{@spell Find Steed}",

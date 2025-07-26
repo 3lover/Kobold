@@ -2,20 +2,75 @@ import { decodePacket, encodePacket } from "./clientProtocol.js";
 import { doc } from "./sheetScripts.js";
 
 let socket = null;
-let W = window.innerWidth;
-let H = window.innerHeight;
-let R = W / H;
-window.addEventListener("resize", function (e) {
-    W = window.innerWidth;
-    H = window.innerHeight;
-    R = W / H;
-});
+let W, H, R;
+function resize() {
+    W = doc.gameCanvas.getBoundingClientRect().width;
+    H = doc.gameCanvas.getBoundingClientRect().height;
+    doc.gameCanvas.width = W;
+    doc.gameCanvas.height = H;
+    R = Math.min(W, H);
+}
+resize();
+window.addEventListener("resize", resize);
+
+let ctx = doc.gameCanvas.getContext("2d");
+ctx.lineCap = "round";
 
 let protocol = null;
 async function fetchProtocol() {
     protocol = await (await fetch("./json/protocol.json")).json();
 }
 await fetchProtocol();
+
+const rootStyles = getComputedStyle(document.documentElement);
+const colors = {};
+function fetchColor(id) {
+    if (colors[id] === undefined) colors[id] = rootStyles.getPropertyValue(`--${id}`).trim();
+    return colors[id];
+}
+
+//_ Canvas Drawing Functions
+function drawGrid(p = {}) {
+    ctx.beginPath();
+    ctx.strokeStyle = fetchColor(p.color);
+    ctx.lineWidth = p.lineWidth;
+    switch (p.shape) {
+        case "square": {
+            ctx.save();
+            ctx.translate(p.origin.x - p.radius * p.dim.x / 2, p.origin.y - p.radius * p.dim.y / 2);
+            for (let i = 0; i < p.dim.x + 1; i++) {
+                ctx.moveTo(p.radius * i, 0);
+                ctx.lineTo(p.radius * i, p.radius * p.dim.y);
+            }
+            for (let i = 0; i < p.dim.y + 1; i++) {
+                ctx.moveTo(0, p.radius * i);
+                ctx.lineTo(p.radius * p.dim.x, p.radius * i);
+            }
+            ctx.stroke();
+            ctx.restore();
+            break;
+        }
+        case "hex": {
+            break;
+        }
+        default: {
+            console.log("unknown grid shape requested");
+            return;
+        }
+    }
+    ctx.strokeStyle = fetchColor("lightBlue");
+    ctx.beginPath();
+    ctx.arc(W/2, H/2, 20, 0, Math.PI * 2);
+    ctx.stroke();
+}
+drawGrid({
+    shape: "square",
+    origin: {x: W/2, y: H/2},
+    dim: {x: 10, y: 5},
+    radius: W/20,
+    color: "red",
+    lineWidth: R * 0.01,
+});
 
 // our websocket connection
 class Socket {

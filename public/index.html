@@ -20,7 +20,7 @@
     <!-- The custom context menu, which follows the mouse -->
     <div id="contextMenu" class="hidden"></div>
     <!-- The dynamic character object sheet menu -->
-    <div id="characterSheetMenu" class="menu">
+    <div id="characterSheetMenu" class="menu hidden">
         <!-- The pullup menu, which shows character options when hovered -->
         <div id="characterSheetPullup" class="menuHolder">
             <h1 class="centerFlexAlign characterSheetBarHeader">🛠 Options 🛠</h1>
@@ -315,7 +315,11 @@
         <div id="characterReferenceSideMenu" class="characterReferenceSideMenu characterReferenceSideMenuClosed"></div>
     </div>
 
-    <!-- The main game canvas -->
+    <!-- The simulator menu -->
+    <div id="simulatorMenu" class="menu">
+        <!-- The canvas for rendering the game -->
+        <canvas id="gameCanvas"></canvas>
+    </div>
 
     <!-- The holder for dice results and popups from numerical outcomes -->
     <div id="diceRollPopupHolder"></div>

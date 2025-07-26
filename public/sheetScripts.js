@@ -19,6 +19,7 @@ export const doc = {
     popupMenuInput: document.getElementById("popupMenuInput"),
     characterReferenceSideMenu: document.getElementById("characterReferenceSideMenu"),
     diceRollPopupHolder: document.getElementById("diceRollPopupHolder"),
+    gameCanvas: document.getElementById("gameCanvas"),
 }
 
 // basic data storage for characters, and the currently viewed character
@@ -425,6 +426,9 @@ function parseBrackets(text) {
                         header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
                         content: [],
                         general: ["characterReferenceSideMenuObject", "center"],
+                        tableHeader: ["characterTableEntry", "characterTableEntryHeader"],
+                        table: ["characterTableEntry"],
+                        inset: ["characterInsetHeader"],
                         dontChangeParent: true
                     });
                 }, final);
@@ -435,7 +439,7 @@ function parseBrackets(text) {
                 errorBracket.innerText = loc[0].substring(loc[0].indexOf(" ") + 1);
                 errorBracket.style.backgroundColor = "green";
                 errorBracket.style.color = "black";
-                console.log(`no reference found for ${loc[0]}`);
+                console.log(`no reference found for ${loc}`);
                 final.appendChild(errorBracket);
             }
         }
@@ -451,6 +455,9 @@ function parseBrackets(text) {
                                     header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
                                     content: [],
                                     general: ["characterReferenceSideMenuObject", "center"],
+                                    tableHeader: ["characterTableEntry", "characterTableEntryHeader"],
+                                    table: ["characterTableEntry"],
+                                    inset: ["characterInsetHeader"],
                                     dontChangeParent: true
                                 });
                             }, doc.characterReferenceSideMenu);
@@ -465,6 +472,9 @@ function parseBrackets(text) {
                                     header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
                                     content: [],
                                     general: ["characterReferenceSideMenuObject", "center"],
+                                    tableHeader: ["characterTableEntry", "characterTableEntryHeader"],
+                                    table: ["characterTableEntry"],
+                                    inset: ["characterInsetHeader"],
                                     dontChangeParent: true
                                 });
                             }, doc.characterReferenceSideMenu);
@@ -488,6 +498,9 @@ function parseBrackets(text) {
                                             header: ["characterReferenceHoverText", "characterReferenceSideMenuObject"],
                                             content: [],
                                             general: ["characterReferenceHoverText", "characterReferenceSideMenuObject"],
+                                            tableHeader: ["characterTableEntry", "characterTableEntryHeader"],
+                                            table: ["characterTableEntry"],
+                                            inset: ["characterInsetHeader"],
                                             dontChangeParent: true
                                         });
                                     }
@@ -504,11 +517,16 @@ function parseBrackets(text) {
                                     header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
                                     content: [],
                                     general: ["characterReferenceSideMenuObject", "center"],
+                                    tableHeader: ["characterTableEntry", "characterTableEntryHeader"],
+                                    table: ["characterTableEntry"],
+                                    inset: ["characterInsetHeader"],
                                     dontChangeParent: true
                                 });
                             }, doc.characterReferenceSideMenu);
                         }
                     }, final);
+                } else if (loc[1] === "bestiary") {
+                    final.appendChild(document.createTextNode(loc[0].substring(loc[0].indexOf(" ") + 1)));
                 } else console.log("unrecognized filter!", loc[1]);
                 break;
             }
@@ -537,6 +555,9 @@ function parseBrackets(text) {
                                     header: ["characterReferenceSideMenuObject", "characterReferenceSideMenuHeader", "center"],
                                     content: [],
                                     general: ["characterReferenceSideMenuObject", "center"],
+                                    tableHeader: ["characterTableEntry", "characterTableEntryHeader"],
+                                    table: ["characterTableEntry"],
+                                    inset: ["characterInsetHeader"],
                                     dontChangeParent: true
                                 });
                             }, doc.characterReferenceSideMenu);
@@ -588,6 +609,7 @@ function extractEntries(entries, parent, extractClasses = {header: [], content: 
         if (entry.name) {
             let header = document.createElement("p");
             for (let trait of extractClasses.header) header.classList.add(trait);
+            if (entry.type === "inset" && extractClasses.inset) for (let trait of extractClasses.inset) header.classList.add(trait);
             header.innerText = entry.name;
             parent.appendChild(header);
         }
@@ -597,19 +619,68 @@ function extractEntries(entries, parent, extractClasses = {header: [], content: 
         if (depth === 0) for (let trait of extractClasses.content) e.classList.add(trait);
         // check what type the entry is, or show it as text by default
         switch (entry.type) {
-            case "entries": {
+            case "entries": case "inset": {
                 extractEntries(entry.entries, extractClasses.dontChangeParent ? parent : e, extractClasses, depth + 1);
                 if (extractClasses.dontChangeParent) continue;
                 break;
             }
             case "list": {
-                e.innerText = "List Here";
-                e.style.backgroundColor = "var(--red)";
+                for (let i of entry.items) {
+                    switch (i.type) {
+                        case "item": {
+                            let header = document.createElement("p");
+                            for (let trait of extractClasses.header) header.classList.add(trait);
+                            header.innerText = `- ${i.name}`;
+                            parent.appendChild(header);
+
+                            extractEntries(i.entries, extractClasses.dontChangeParent ? parent : e, extractClasses, depth + 1);
+                            if (extractClasses.dontChangeParent) continue;
+                            break;
+                        }
+                        case undefined: {
+                            extractEntries([`- ${i}`], extractClasses.dontChangeParent ? parent : e, extractClasses, depth + 1);
+                            if (extractClasses.dontChangeParent) continue;
+                            break;
+                        }
+                        default: {
+                            console.log("unrecognized list type");
+                            break;
+                        }
+                    }
+                }
+                if (extractClasses.dontChangeParent) continue;
                 break;
             }
             case "table": {
-                e.innerText = "Table Here";
-                e.style.backgroundColor = "var(--red)";
+                let table = document.createElement("div");
+                table.classList.add("characterReferenceTable");
+                let colLayout = "";
+                for (let i of entry.colStyles) {
+                    colLayout += `${i.split(" ")[0].substring(4)}fr `;
+                }
+                table.style.gridTemplateColumns = colLayout;
+                
+                if (entry.colLabels.length !== entry.colStyles.length) console.log(`BS Table alert: ${entry}`)
+
+                for (let i = 0; i < entry.colLabels.length; i++) {
+                    let tableData = document.createElement("div");
+                    for (let trait of extractClasses.tableHeader) tableData.classList.add(trait);
+                    if (entry.colStyles[i].includes("text-center")) tableData.classList.add("centerText");
+                    tableData.innerText = entry.colLabels[i];
+                    table.appendChild(tableData);
+                }
+
+                for (let i = 0; i < entry.rows.length; i++) {
+                    for (let j = 0; j < entry.rows[i].length; j++) {
+                        let tableData = document.createElement("div");
+                        for (let trait of extractClasses.table) tableData.classList.add(trait);
+                        if (entry.colStyles[j] && entry.colStyles[j].includes("text-center")) tableData.classList.add("centerText");
+                        tableData.appendChild(parseBrackets(entry.rows[i][j]));
+                        table.appendChild(tableData);
+                    }
+                }
+
+                e.appendChild(table);
                 break;
             }
             case undefined: {
@@ -624,6 +695,8 @@ function extractEntries(entries, parent, extractClasses = {header: [], content: 
             default: {
                 e.style.backgroundColor = "var(--red)";
                 e.innerText = entry.type;
+                console.log(`Unknown Entry Type: ${entry.type} as`);
+                console.log(entry)
                 break;
             }
         }
@@ -660,7 +733,10 @@ function populateDescriptionPanel(item) {
     extractEntries(item.entries, doc.characterInventoryDescriptionPanel, {
         header: ["characterInventoryDescriptionPanelObject", "characterInventoryDescriptionPanelHeader"],
         content: ["characterInventoryDescriptionPanelProperty"],
-        general: ["characterInventoryDescriptionPanelObject"]
+        general: ["characterInventoryDescriptionPanelObject"],
+        tableHeader: ["characterTableEntry", "characterTableEntryHeader"],
+        table: ["characterTableEntry"],
+        inset: ["characterInsetHeader"]
     });
 }
 
@@ -794,6 +870,9 @@ function createClassDropdowns() {
                     header: ["characterEquippedClassDescription", "characterEquippedClassDescriptionHeader", "center"],
                     content: [],
                     general: ["characterEquippedClassDescription", "center"],
+                    tableHeader: ["characterTableEntry", "characterTableEntryHeader"],
+                    table: ["characterTableEntry"],
+                    inset: ["characterInsetHeader"],
                     dontChangeParent: true
                 });
             }

@@ -137,6 +137,10 @@ span {
     position: relative;
 }
 
+.centerText {
+    text-align: center;
+}
+
 /* The custom context menu, which follows the mouse and is show and frozen on right click */
 #contextMenu {
     background-color: var(--grey);
@@ -951,6 +955,36 @@ span {
     color: var(--red);
 }
 
+/* A table element */
+.characterReferenceTable {
+    position: relative;
+    background-color: var(--veryDarkBlue);
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    padding: 1vmin;
+}
+
+.characterTableEntry {
+    position: relative;
+    height: auto;
+    font-size: 3vmin;
+    background-color: var(--darkGrey);
+    border: 0.5vmin solid var(--white);
+    padding: 1vmin;
+    color: var(--white);
+}
+
+.characterTableEntryHeader {
+    position: relative;
+    height: auto;
+    font-size: 3vmin;
+    background-color: var(--veryDarkGrey);
+    border: 0.5vmin solid var(--white);
+    padding: 1vmin;
+    color: var(--white);
+}
+
 /* The menu for the menu that pops up whenever clicking a keyword */
 .characterReferenceSideMenu {
     position: absolute;
@@ -989,6 +1023,11 @@ span {
     position: relative;
     margin-bottom: 2vmin;
     padding: 1vmin;
+}
+
+/* The inset header */
+.characterInsetHeader {
+    background-color: var(--veryDarkPurple);
 }
 
 /* Popups for when you roll dice or expect a numerical outcome */
@@ -1052,4 +1091,17 @@ span {
     height: 8vh;
     font-size: 6vh;
     text-align: center;
+}
+
+
+/*_ The Simulator Page */
+
+/* The game canvas */
+#gameCanvas {
+    width: 100vw;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    position: absolute;
+    background-color: var(--black);
 }

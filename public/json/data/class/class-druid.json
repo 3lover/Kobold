@@ -2518,7 +2518,8 @@
 							"colStyles": [
 								"col-3 text-center",
 								"col-3 text-center",
-								"col-3 text-center"
+								"col-3 text-center",
+                                "col-3 text-center"
 							],
 							"rows": [
 								[

@@ -316,9 +316,37 @@
     </div>
 
     <!-- The simulator menu -->
-    <div id="simulatorMenu" class="menu">
+    <div id="simulatorMenu" class="menu hidden">
         <!-- The canvas for rendering the game -->
         <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- Has buttons and widgets for editing character sheets, creating/joining lobbies, and other stuff like settings -->
+    <div id="frontMenu" class="menu">
+        <!-- The very first page people see -->
+        <div id="frontMainHolder" class="frontHolder">
+            <h1 id="frontMainHeader" class="frontHeader centerFlexAlign">Kobold</h1>
+            <button id="frontMainEditCharactersButton" class="frontButton">Edit Characters</button>
+            <button id="frontMainCreateGameButton" class="frontButton">Create a Game</button>
+            <button id="frontMainJoinGameButton" class="frontButton">Join a Game</button>
+            <button id="frontMainSettingsButton" class="frontButton">Settings</button>
+        </div>
+        <!-- Holds stuff for hosting a lobby -->
+        <div id="frontCreateGameHolder" class="frontHolder fadeOutHolderAnimation hidden">
+            <button id="frontCreateGameReturn" class="returnButton">&lt;</button>
+            <h1 id="frontCreateGameHeader" class="frontHeader centerFlexAlign">Create a Game</h1>
+            <input id="frontCreateGameNameInput" class="frontButton" placeholder="Player Name">
+            <input id="frontCreateGameCodeInput" class="frontButton" placeholder="Lobby Code">
+            <button id="frontCreateGameCreateButton" class="frontButton">Create Game</button>
+        </div>
+        <!-- Holds stuff for joining an existing lobby -->
+        <div id="frontJoinGameHolder" class="frontHolder fadeOutHolderAnimation hidden">
+            <button id="frontJoinGameReturn" class="returnButton">&lt;</button>
+            <h1 id="frontJoinGameHeader" class="frontHeader centerFlexAlign">Join a Game</h1>
+            <input id="frontJoinGameNameInput" class="frontButton" placeholder="Player Name">
+            <input id="frontJoinGameCodeInput" class="frontButton" placeholder="Lobby Code">
+            <button id="frontJoinGameJoinButton" class="frontButton">Join Game</button>
+        </div>
     </div>
 
     <!-- The holder for dice results and popups from numerical outcomes -->
@@ -333,6 +361,12 @@
         <button id="popupMenuLeftDoubleButton" class="popupMenuButton hidden">Confirm</button>
         <button id="popupMenuRightDoubleButton" class="popupMenuButton hidden">Cancel</button>
         <input id="popupMenuInput" class="popupMenuButton hidden" placeholder="Type Here">
+    </div>
+
+    <!-- The loading screen, which appears when processing content or loading the page -->
+    <div id="loadingScreen">
+        <div id="loadingBackground"></div>
+        <div id="loadingSpinner">Loading...</div>
     </div>
 </body>
 <script src="helpers.js" type="module"></script>

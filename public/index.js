@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc } from "./sheetScripts.js";
+import { doc, createPopup } from "./sheetScripts.js";
 
 let socket = null;
 let W, H, R;
@@ -28,6 +28,11 @@ function fetchColor(id) {
     if (colors[id] === undefined) colors[id] = rootStyles.getPropertyValue(`--${id}`).trim();
     return colors[id];
 }
+
+const data = {
+    cameraLocation: {x: 0, y: 0}
+};
+
 
 //_ Canvas Drawing Functions
 function drawGrid(p = {}) {
@@ -63,14 +68,6 @@ function drawGrid(p = {}) {
     ctx.arc(W/2, H/2, 20, 0, Math.PI * 2);
     ctx.stroke();
 }
-drawGrid({
-    shape: "square",
-    origin: {x: W/2, y: H/2},
-    dim: {x: 10, y: 5},
-    radius: W/20,
-    color: "red",
-    lineWidth: R * 0.01,
-});
 
 // our websocket connection
 class Socket {
@@ -110,6 +107,32 @@ class Socket {
                 this.connected = true;
                 break;
             }
+            case protocol.client.lobbyWithCodeAlreadyExists: {
+                createPopup(
+                    "Lobby Already Exists", `Creating a lobby failed since a lobby with the code '${document.getElementById("frontCreateGameCodeInput").value}' already exists.\n\nDo you want to join this lobby instead?"`, {type: 0},
+                    "Cancel", function(e) {return true},
+                    "Join Lobby", function(e) {
+                        moveHolders(document.getElementById("frontCreateGameHolder"), document.getElementById("frontJoinGameHolder"));
+                        document.getElementById("frontJoinGameNameInput").value = document.getElementById("frontCreateGameNameInput").value;
+                        document.getElementById("frontJoinGameCodeInput").value = document.getElementById("frontCreateGameCodeInput").value;
+                        return true;
+                    }
+                );
+                break;
+            }
+            case protocol.client.noLobbyWithCode: {
+                createPopup(
+                    "No Lobby Found", `A lobby could not be found with the code '${document.getElementById("frontJoinGameCodeInput").value}'.\n\nDo you want to create a lobby with this code instead?"`, {type: 0},
+                    "Cancel", function(e) {return true},
+                    "Create Lobby", function(e) {
+                        moveHolders(document.getElementById("frontJoinGameHolder"), document.getElementById("frontCreateGameHolder"));
+                        document.getElementById("frontCreateGameNameInput").value = document.getElementById("frontJoinGameNameInput").value;
+                        document.getElementById("frontCreateGameCodeInput").value = document.getElementById("frontJoinGameCodeInput").value;
+                        return true;
+                    }
+                );
+                break;
+            }
             default: {
                 console.log(`An unknown code has been recieved: ${reader.getInt8(0)}`);
                 break;
@@ -133,9 +156,94 @@ class Socket {
 
 socket = new Socket();
 socket.connect();
+document.getElementById("loadingScreen").classList.add("hidden");
 
 // an update loop to keep the game running
 function update() {
+    ctx.clearRect(0, 0, W, H);
+    
+    drawGrid({
+        shape: "square",
+        origin: {x: W/2 + data.cameraLocation.x, y: H/2 + data.cameraLocation.y},
+        dim: {x: 10, y: 5},
+        radius: W/20,
+        color: "red",
+        lineWidth: R * 0.01,
+    });
+
     requestAnimationFrame(update);
 }
 requestAnimationFrame(update);
+
+// when dragging across the canvas, change the camera position
+doc.gameCanvas.addEventListener("mousedown", function(e) {
+    data.originalCameraLocation = structuredClone(data.cameraLocation);
+    function drag(e2) {
+        data.cameraLocation.x = data.originalCameraLocation.x + e2.clientX - e.clientX;
+        data.cameraLocation.y = data.originalCameraLocation.y + e2.clientY - e.clientY;
+    }
+    function release(e2) {
+        document.removeEventListener("mousemove", drag);
+        document.removeEventListener("mouseup", release);
+    }
+    
+    document.addEventListener("mousemove", drag);
+    document.addEventListener("mouseup", release);
+})
+
+/* Add menu navigation events to buttons */
+function moveHolders(from, to) {
+    from.classList.remove("fadeInHolderAnimation");
+    from.classList.add("fadeOutHolderAnimation");
+    to.classList.remove("fadeOutHolderAnimation", "hidden");
+    to.classList.add("fadeInHolderAnimation");
+}
+
+// front menu buttons
+document.getElementById("frontMainCreateGameButton").addEventListener("click", function(e) {
+    moveHolders(document.getElementById("frontMainHolder"), document.getElementById("frontCreateGameHolder"));
+});
+document.getElementById("frontMainJoinGameButton").addEventListener("click", function(e) {
+    moveHolders(document.getElementById("frontMainHolder"), document.getElementById("frontJoinGameHolder"));
+});
+
+// create game buttons
+document.getElementById("frontCreateGameReturn").addEventListener("click", function(e) {
+    moveHolders(document.getElementById("frontCreateGameHolder"), document.getElementById("frontMainHolder"));
+});
+
+document.getElementById("frontCreateGameCreateButton").addEventListener("click", function(e) {
+    socket.talk(encodePacket([
+        protocol.server.createLobby,
+        document.getElementById("frontCreateGameNameInput").value,
+        document.getElementById("frontCreateGameCodeInput").value,
+    ], ["int8", "string", "string"]));
+});
+
+// join game buttons
+document.getElementById("frontJoinGameReturn").addEventListener("click", function(e) {
+    moveHolders(document.getElementById("frontJoinGameHolder"), document.getElementById("frontMainHolder"));
+});
+
+document.getElementById("frontJoinGameJoinButton").addEventListener("click", function(e) {
+    socket.talk(encodePacket([
+        protocol.server.joinLobby,
+        document.getElementById("frontJoinGameNameInput").value,
+        document.getElementById("frontJoinGameCodeInput").value,
+    ], ["int8", "string", "string"]));
+});
+
+
+/* Load saved input contents */
+function saveInput(input) {
+    input.addEventListener("change", function(e) {
+        localStorage.setItem(input.id, input.value);
+    });
+    if (localStorage.getItem(input.id)) input.value = localStorage.getItem(input.id);
+}
+
+saveInput(document.getElementById("frontCreateGameNameInput"));
+saveInput(document.getElementById("frontCreateGameCodeInput"));
+
+saveInput(document.getElementById("frontJoinGameNameInput"));
+saveInput(document.getElementById("frontJoinGameCodeInput"));

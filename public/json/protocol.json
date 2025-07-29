@@ -2,9 +2,13 @@
     "client": {
         "connected": 0,
         "infoPacket": 1,
-        "checkConnection": 2
+        "checkConnection": 2,
+        "lobbyWithCodeAlreadyExists": 3,
+        "noLobbyWithCode": 4
     },
     "server": {
-        "confirmConnection": 0
+        "confirmConnection": 0,
+        "createLobby": 1,
+        "joinLobby": 2
     }
 }

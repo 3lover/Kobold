@@ -254,6 +254,68 @@ span {
     background-color: var(--veryDarkGrey);
 }
 
+/* The loading screen */
+#loadingScreen {
+    position: absolute;
+    left: 0;
+    width: 100vw;
+    top: 0;
+    height: 100vh;
+    z-index: 999999;
+    background-color: transparent;
+}
+
+#loadingBackground {
+    position: absolute;
+    left: 0;
+    width: 100vw;
+    top: 0;
+    height: 100vh;
+    opacity: 0.8;
+    background-color: var(--black);
+}
+
+@keyframes spinner {
+    0% {
+        color: var(--purple);
+        transform: rotate(0deg);
+    }
+    20% {
+        color: var(--red);
+        transform: rotate(360deg);
+    }
+    40% {
+        color: var(--darkGreen);
+        transform: rotate(720deg);
+    }
+    60% {
+        color: var(--blue);
+        transform: rotate(1080deg);
+    }
+    80% {
+        color: var(--yellow);
+        transform: rotate(1440deg);
+    }
+    100% {
+        color: var(--purple);
+        transform: rotate(1800deg);
+    }
+}
+
+#loadingSpinner {
+    position: absolute;
+    left: 25vw;
+    top: 45vh;
+    width: 50vw;
+    height: 10vh;
+    color: var(--white);
+    background-color: transparent;
+    font-size: 6vmin;
+    opacity: 1;
+    text-align: center;
+    animation: spinner 10s infinite;
+}
+
 /* The dropdown menu with the export, import, save, and cancel buttons */
 #characterSheetPullup {
     top: 94vh;
@@ -1092,7 +1154,97 @@ span {
     font-size: 6vh;
     text-align: center;
 }
+/*_ The Front Page */
 
+/* The front page basic elements */
+.frontHolder {
+    position: absolute;
+    left: 30vw;
+    top: 15vh;
+    width: 40vw;
+    height: 70vh;
+    background-color: var(--veryDarkGrey);
+}
+
+.frontHeader {
+    position: relative;
+    width: 100%;
+    height: 10vh;
+    font-size: 4vmin;
+    text-align: center;
+}
+
+.frontButton {
+    position: relative;
+    width: 80%;
+    height: 8vh;
+    left: 10%;
+    margin-bottom: 2vh;
+    font-size: 4vmin;
+    background-color: var(--darkGrey);
+    text-align: center;
+}
+.frontButton:hover {
+    background-color: var(--grey);
+    transform: scale(102%);
+}
+.frontButton:active {
+    background-color: var(--lightGrey);
+    transform: scale(105%);
+}
+
+.returnButton {
+    position: absolute;
+    left: 10%;
+    top: 0;
+    height: 10vh;
+    color: white;
+    background-color: transparent;
+    font-size: 4vmin;
+    z-index: 5;
+}
+.returnButton:hover {
+    text-decoration: underline;
+    transform: scale(102%);
+}
+.returnButton:active {
+    text-decoration: underline;
+    transform: scale(105%);
+    color: var(--red);
+}
+
+/* Animations for the headers */
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+        top: 15vh;
+    }
+    100% {
+        opacity: 0;
+        top: -70vh;
+        display: none;
+    }
+}
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        top: 100vh;
+    }
+    100% {
+        opacity: 1;
+        top: 15vh;
+    }
+}
+.fadeOutHolderAnimation {
+    animation: fadeOut 0.5s;
+    animation-timing-function: ease-out;
+    animation-fill-mode: both;
+}
+.fadeInHolderAnimation {
+    animation: fadeIn 0.5s;
+    animation-timing-function: ease-out;
+    animation-fill-mode: both;
+}
 
 /*_ The Simulator Page */
 

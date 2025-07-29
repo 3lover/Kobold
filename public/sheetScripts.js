@@ -1019,7 +1019,7 @@ function fillCharacterFields(character) {
 }
 
 // creates a popup menu based on the specifications
-function createPopup(title, description, special, button1, callback1, button2, callback2) {
+export function createPopup(title, description, special, button1, callback1, button2, callback2) {
     doc.popupMenu.classList.remove("hidden");
     doc.popupMenuHeader.innerText = title;
     doc.popupMenuDescription.innerText = description;

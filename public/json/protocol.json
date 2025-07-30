@@ -4,11 +4,15 @@
         "infoPacket": 1,
         "checkConnection": 2,
         "lobbyWithCodeAlreadyExists": 3,
-        "noLobbyWithCode": 4
+        "noLobbyWithCode": 4,
+        "successfulLobbyRequest": 5,
+        "assetInquiryPacket": 6,
+        "assetDataPacket": 7
     },
     "server": {
         "confirmConnection": 0,
         "createLobby": 1,
-        "joinLobby": 2
+        "joinLobby": 2,
+        "requestedAssets": 3
     }
 }

@@ -24,14 +24,14 @@ export const doc = {
 
 // basic data storage for characters, and the currently viewed character
 async function loadDefaultCharacterSheet() {
-    savedCharacters.push(await (await fetch("./json/defaultCharacterSheet.json")).json());
-    currentSelectedCharacter = savedCharacters[0];
+    savedAssets.push(await (await fetch("./json/defaultCharacterSheet.json")).json());
+    currentSelectedCharacter = savedAssets[0];
     fillCharacterFields(currentSelectedCharacter);
 }
 export let currentSelectedCharacter = null;
-export let savedCharacters = [];
+export let savedAssets = [];
 export let classData = {};
-if (localStorage.getItem("savedCharacters")) savedCharacters = JSON.parse(localStorage.getItem("savedCharacters"));
+if (localStorage.getItem("savedAssets")) savedAssets = JSON.parse(localStorage.getItem("savedAssets"));
 else await loadDefaultCharacterSheet();
 
 // possible error popups
@@ -42,6 +42,12 @@ function error(id) {
             return false;
         }
     }
+}
+
+// finds a specific asset from our saved assets via id and name
+export function findAsset(id, name) {
+    for (let asset of savedAssets) if (asset.id === id && asset.name === name) return asset;
+    return null;
 }
 
 //_ custom select menu code

@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc, createPopup } from "./sheetScripts.js";
+import { doc, createPopup, savedAssets, findAsset } from "./sheetScripts.js";
 
 let socket = null;
 let W, H, R;
@@ -102,11 +102,13 @@ class Socket {
         let reader = new DataView(packet.data);
 
         switch (reader.getInt8(0)) {
+            // confirm that the server can hear us
             case protocol.client.connected: {
                 console.log(`Connection confirmed by server on port "${location.host}"`);
                 this.connected = true;
                 break;
             }
+            // if we tried to create a lobby and failed, ask if we want to join it instead
             case protocol.client.lobbyWithCodeAlreadyExists: {
                 createPopup(
                     "Lobby Already Exists", `Creating a lobby failed since a lobby with the code '${document.getElementById("frontCreateGameCodeInput").value}' already exists.\n\nDo you want to join this lobby instead?"`, {type: 0},
@@ -120,6 +122,7 @@ class Socket {
                 );
                 break;
             }
+            // if we tried to join a lobby and failed, ask if we want to host instead
             case protocol.client.noLobbyWithCode: {
                 createPopup(
                     "No Lobby Found", `A lobby could not be found with the code '${document.getElementById("frontJoinGameCodeInput").value}'.\n\nDo you want to create a lobby with this code instead?"`, {type: 0},
@@ -133,8 +136,35 @@ class Socket {
                 );
                 break;
             }
+            // if we successfully join/create a lobby, move us to the lobby drop page
+            case protocol.client.successfulLobbyRequest: {
+                document.getElementById("simulatorMenu").classList.remove("hidden");
+                document.getElementById("frontMenu").classList.add("hidden");
+                document.getElementById("loadingScreen").classList.remove("hidden");
+                break;
+            }
+            // the server is asking if we own the needed assets and if we don't own any, we request them
+            case protocol.client.assetInquiryPacket: {
+                const d = decodePacket(reader, ["int8", "repeat", "int32", "string", "end"]);
+                let requestedAssets = [protocol.server.requestedAssets, 0];
+                for (let i = 0; i < d[1].length; i += 2) {
+                    if (findAsset(d[1][i + 0], d[1][i + 1]) === null) {
+                        requestedAssets.push(d[1][i + 0], d[1][i + 1]);
+                        requestedAssets[1]++;
+                    }
+                }
+                requestedAssets.push(0);
+                socket.talk(encodePacket(requestedAssets, ["int8", "repeat", "int32", "string", "end"]));
+                break;
+            }
+            case protocol.client.assetDataPacket: {
+                const d = decodePacket(reader, ["int8", "repeat", "int32", "string", "string", "end"]);
+                console.log("Data packet recieved!");
+                console.log(d);
+                break;
+            }
             default: {
-                console.log(`An unknown code has been recieved: ${reader.getInt8(0)}`);
+                console.warn(`An unknown code has been recieved: ${reader.getInt8(0)}`);
                 break;
             }
         }

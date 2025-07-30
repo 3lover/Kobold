@@ -15,18 +15,42 @@ const { inherits } = require('util');
 class Lobby {
     constructor(p) {
         this.code = p.code;
-        this.players = [p.host];
+        this.players = [];
         this.host = p.host;
         this.objects = {
             grids: [],
             tokens: [],
             drawings: [],
 
-            sheets: [],
-            images: [],
+            sheets: [new Sheet({name: "test sheet 1", id: 787483})],
+            images: [new Image({name: "test image 1", id: 787483}), new Image({name: "test image 2", id: 5})],
         };
         this.creationTime = new Date().getTime();
-        console.log(`A new lobby has been created with code ${this.code} by ${p.host.name}`);
+        console.log(`A new lobby has been created with code ${this.code}`);
+        this.addPlayer(p.host);
+    }
+
+    // finds a specific asset by its ID and name
+    findAssetById(id, name) {
+        for (let sheet of this.objects.sheets) if (sheet.id === id && sheet.name === name) return sheet;
+        for (let image of this.objects.images) if (image.id === id && image.name === name) return image;
+        return null;
+    }
+
+    // packages assets for a player to send them the data they need for saving
+    packageAssets(assets, player) {
+        let requestedAssets = [protocol.client.assetDataPacket, 0];
+        for (let i = 0; i < assets.length; i += 2) {
+            const a = this.findAssetById(assets[i + 0], assets[i + 1]);
+            if (a === null) {
+                console.warn(`Asset ${assets[i + 1]} (${assets[i + 0]}) requested but not found`);
+                continue;
+            }
+            requestedAssets.push(a.id, a.name, a.toString());
+            requestedAssets[1]++;
+        }
+        requestedAssets.push(0);
+        player.talk(ptools.encodePacket(requestedAssets, ["int8", "repeat", "int32", "string", "string", "end"]));
     }
 
     // adds a player to the lobby, doing whatever it needs to not interupt anything
@@ -39,6 +63,16 @@ class Lobby {
         }
         this.players.push(player);
         console.log(`${player.name} has joined ${this.code}`);
+
+        player.talk(ptools.encodePacket([protocol.client.successfulLobbyRequest, this.code], ["int8", "string"]));
+
+        // check that the player has access to all needed assets and loaded items
+        let assetPacket = [protocol.client.assetInquiryPacket, this.objects.sheets.length + this.objects.images.length];
+        for (let sheet of this.objects.sheets) assetPacket.push(sheet.id, sheet.name);
+        for (let image of this.objects.images) assetPacket.push(image.id, image.name);
+        assetPacket.push(0);
+        player.talk(ptools.encodePacket(assetPacket, ["int8", "repeat", "int32", "string", "end"]));
+        console.log(assetPacket)
     }
 
     // removes a player from the lobby
@@ -82,6 +116,11 @@ class Player {
         this.name = p.name;
         this.socket = p.socket;
         this.host = p.host;
+    }
+
+    // sends a message through a player's socket
+    talk(data) {
+        this.socket.talk(data);
     }
 }
 
@@ -130,6 +169,7 @@ class Token extends Object {
 class MetaObject {
     constructor(p) {
         this.name = p.name;
+        this.id = p.id ?? -1;
     }
 }
 
@@ -138,12 +178,20 @@ class Sheet extends MetaObject {
     constructor(p) {
         super(p);
     }
+
+    toString() {
+        return "This is a character sheet :)";
+    }
 }
 
 // an image is stored as a meta object, that way clients only have to load them once over websocket to save processing
 class Image extends MetaObject {
     constructor(p) {
         super(p);
+    }
+
+    toString() {
+        return "This is an image :)";
     }
 }
 
@@ -215,6 +263,12 @@ const sockets = {
 
                     break;
                 }
+                // when a client requests an asset they don't have, package and send it to them
+                case protocol.server.requestedAssets: {
+                    const d = ptools.decodePacket(reader, ["int8", "repeat", "int32", "string", "end"]);
+                    this.playerLobby.packageAssets(d[1], this.playerInstance);
+                    break;
+                }
                 default: {
                     console.warn(`An unknown code has been recieved: ${reader.getInt8(0)}`);
                     break;
@@ -224,7 +278,7 @@ const sockets = {
 
         close() {
             console.log(`Player ${this.id} has disconnected. Active sockets: ${sockets.clients.length - 1}.`);
-            this.playerLobby.removePlayer(this.playerInstance);
+            if (this.playerLobby) this.playerLobby.removePlayer(this.playerInstance);
             let myIndex = sockets.clients.indexOf(this);
             if (myIndex >= 0) sockets.clients.splice(myIndex, 1);
         }

@@ -22,8 +22,8 @@ class Lobby {
             tokens: [],
             drawings: [],
 
-            sheets: [new Sheet({name: "test sheet 1", id: 787483})],
-            images: [new Image({name: "test image 1", id: 787483}), new Image({name: "test image 2", id: 5})],
+            sheets: [],
+            images: [],
         };
         this.creationTime = new Date().getTime();
         console.log(`A new lobby has been created with code ${this.code}`);
@@ -35,6 +35,29 @@ class Lobby {
         for (let sheet of this.objects.sheets) if (sheet.id === id && sheet.name === name) return sheet;
         for (let image of this.objects.images) if (image.id === id && image.name === name) return image;
         return null;
+    }
+
+    // uploads a package of assets from a client
+    uploadAssets(assets) {
+        console.log(assets);
+        for (let i = 0; i < assets.length; i += 3) {
+            //! make this sense type later
+            this.objects.images.push(new Image({id: assets[i + 0], name: assets[i + 1], data: assets[i + 2]}));
+        }
+        console.log("assets uploaded");
+        this.checkAssets();
+    }
+
+    // checks assets for all players to make sure they have what they need
+    checkAssets() {
+        let assetPacket = [protocol.client.assetInquiryPacket, this.objects.sheets.length + this.objects.images.length];
+        for (let sheet of this.objects.sheets) assetPacket.push(sheet.id, sheet.name);
+        for (let image of this.objects.images) assetPacket.push(image.id, image.name);
+        assetPacket.push(0);
+        console.log(assetPacket);
+        for (let player of this.players) {
+            player.talk(ptools.encodePacket(assetPacket, ["int8", "repeat", "int32", "string", "end"]));
+        }
     }
 
     // packages assets for a player to send them the data they need for saving
@@ -65,14 +88,6 @@ class Lobby {
         console.log(`${player.name} has joined ${this.code}`);
 
         player.talk(ptools.encodePacket([protocol.client.successfulLobbyRequest, this.code], ["int8", "string"]));
-
-        // check that the player has access to all needed assets and loaded items
-        let assetPacket = [protocol.client.assetInquiryPacket, this.objects.sheets.length + this.objects.images.length];
-        for (let sheet of this.objects.sheets) assetPacket.push(sheet.id, sheet.name);
-        for (let image of this.objects.images) assetPacket.push(image.id, image.name);
-        assetPacket.push(0);
-        player.talk(ptools.encodePacket(assetPacket, ["int8", "repeat", "int32", "string", "end"]));
-        console.log(assetPacket)
     }
 
     // removes a player from the lobby
@@ -188,10 +203,11 @@ class Sheet extends MetaObject {
 class Image extends MetaObject {
     constructor(p) {
         super(p);
+        this.data = p.data;
     }
 
     toString() {
-        return "This is an image :)";
+        return this.data;
     }
 }
 
@@ -267,6 +283,12 @@ const sockets = {
                 case protocol.server.requestedAssets: {
                     const d = ptools.decodePacket(reader, ["int8", "repeat", "int32", "string", "end"]);
                     this.playerLobby.packageAssets(d[1], this.playerInstance);
+                    break;
+                }
+                // when the client asks us to upload assets, save and attempt to distribute them
+                case protocol.server.uploadRequiredAssets: {
+                    const d = ptools.decodePacket(reader, ["int8", "repeat", "int32", "string", "string", "end"]);
+                    this.playerLobby.uploadAssets(d[1]);
                     break;
                 }
                 default: {

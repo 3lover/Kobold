@@ -141,6 +141,12 @@ span {
     text-align: center;
 }
 
+.hiddenFileDrop {
+   opacity: 0;
+   position: absolute;
+   z-index: -1;
+}
+
 /* The custom context menu, which follows the mouse and is show and frozen on right click */
 #contextMenu {
     background-color: var(--grey);
@@ -991,9 +997,19 @@ span {
     font-size: 4vmin;
     color: var(--white);
     width: 40vw;
-    height: 6vh;
+    height: 9vh;
     top: 30vh;
     left: 5vw;
+    text-align: center;
+    z-index: 3;
+}
+
+#popupMenuFileDropLabel {
+    top: 30vh;
+    left: 5vw;
+    width: 40vw;
+    height: 9vh;
+    background-color: var(--grey);
     text-align: center;
     z-index: 3;
 }

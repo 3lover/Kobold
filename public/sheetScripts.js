@@ -17,6 +17,8 @@ export const doc = {
     popupMenuLeftDoubleButton: document.getElementById("popupMenuLeftDoubleButton"),
     popupMenuRightDoubleButton: document.getElementById("popupMenuRightDoubleButton"),
     popupMenuInput: document.getElementById("popupMenuInput"),
+    popupMenuFileDrop: document.getElementById("popupMenuFileDrop"),
+    popupMenuFileDropLabel: document.getElementById("popupMenuFileDropLabel"),
     characterReferenceSideMenu: document.getElementById("characterReferenceSideMenu"),
     diceRollPopupHolder: document.getElementById("diceRollPopupHolder"),
     gameCanvas: document.getElementById("gameCanvas"),
@@ -33,6 +35,15 @@ export let savedAssets = [];
 export let classData = {};
 if (localStorage.getItem("savedAssets")) savedAssets = JSON.parse(localStorage.getItem("savedAssets"));
 else await loadDefaultCharacterSheet();
+
+export class Image {
+    constructor(p) {
+        this.type = p.type ?? "image";
+        this.data = p.data ?? "";
+        this.id = p.id ?? Math.floor(Math.random() * 2**31);
+        this.name = p.name ?? "";
+    }
+}
 
 // possible error popups
 function error(id) {
@@ -291,6 +302,15 @@ doc.characterReferenceSideMenu.addEventListener("mousedown", function(e) {
         document.addEventListener("mousemove", dragging);
         document.addEventListener("mouseup", removedragging);
     }
+});
+
+doc.popupMenuFileDrop.addEventListener("change", function(e) {
+    if (doc.popupMenuFileDrop.files.length <= 0) {
+        doc.popupMenuFileDropLabel.innerText = "Click to Upload a File";
+        return;
+    }
+    const file = doc.popupMenuFileDrop.files[0];
+    doc.popupMenuFileDropLabel.innerText = `${file.name} (${Math.ceil(file.size/1024)} KB)`;
 });
 
 //_ Character sheet functionalities
@@ -1050,6 +1070,14 @@ export function createPopup(title, description, special, button1, callback1, but
             doc.popupMenuInput.maxLength = special.maxlength;
             break;
         }
+        // a file upload
+        case 2: {
+            doc.popupMenuDescription.classList.add("contractedPopupDescription");
+            doc.popupMenuFileDropLabel.classList.remove("hidden");
+            doc.popupMenuFileDropLabel.innerText = "Click to Upload a File";
+            doc.popupMenuFileDrop.value = "";
+            break;
+        }
     }
 
     if (button2) {
@@ -1115,3 +1143,17 @@ async function fetchClass(name, final) {
 for (let c of classNames) {
     await fetchClass(c, c === classNames[classNames.length - 1]);
 }
+
+createPopup(
+    "Test File Upload", "This wll be the asset shared with the server for testing purposes.",
+    {type: 2},
+    "Cancel", function(e) {return true},
+    "Upload", function(e) {
+        const reader = new FileReader();
+        reader.onload = function() {
+            savedAssets.push(new Image({data: reader.result}));
+        };
+        reader.readAsDataURL(doc.popupMenuFileDrop.files[0]);
+        return true;
+    }
+);

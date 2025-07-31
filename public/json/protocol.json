@@ -13,6 +13,7 @@
         "confirmConnection": 0,
         "createLobby": 1,
         "joinLobby": 2,
-        "requestedAssets": 3
+        "requestedAssets": 3,
+        "uploadRequiredAssets": 4
     }
 }

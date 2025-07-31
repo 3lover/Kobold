@@ -5,7 +5,7 @@
 exports.convertIntArrayToString = function(reader, initialOffset) {
     let returnedString = "";
     let finalOffset = 0;
-    for (; finalOffset < 99999; finalOffset++) {
+    for (; finalOffset < 9999999; finalOffset++) {
       let characterCode = reader.getInt8(initialOffset + (finalOffset));
       if (characterCode === 0) break;
       returnedString += String.fromCharCode(characterCode);

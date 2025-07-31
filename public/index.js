@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc, createPopup, savedAssets, findAsset } from "./sheetScripts.js";
+import { doc, createPopup, savedAssets, findAsset, Image } from "./sheetScripts.js";
 
 let socket = null;
 let W, H, R;
@@ -136,11 +136,16 @@ class Socket {
                 );
                 break;
             }
-            // if we successfully join/create a lobby, move us to the lobby drop page
+            // if we successfully join/create a lobby, move us to the lobby drop page and send our assets
             case protocol.client.successfulLobbyRequest: {
                 document.getElementById("simulatorMenu").classList.remove("hidden");
                 document.getElementById("frontMenu").classList.add("hidden");
                 document.getElementById("loadingScreen").classList.remove("hidden");
+                console.log(savedAssets[1]);
+                socket.talk(encodePacket(
+                    [protocol.server.uploadRequiredAssets, 1, savedAssets[1].id, savedAssets[1].name, savedAssets[1].data, 0],
+                    ["int8", "repeat", "int32", "string", "string", "end"]
+                ));
                 break;
             }
             // the server is asking if we own the needed assets and if we don't own any, we request them
@@ -155,12 +160,22 @@ class Socket {
                 }
                 requestedAssets.push(0);
                 socket.talk(encodePacket(requestedAssets, ["int8", "repeat", "int32", "string", "end"]));
+                document.getElementById("loadingScreen").classList.remove("hidden");
                 break;
             }
+            // when the server sends us our requested assets, save them to our asset storage
             case protocol.client.assetDataPacket: {
                 const d = decodePacket(reader, ["int8", "repeat", "int32", "string", "string", "end"]);
                 console.log("Data packet recieved!");
-                console.log(d);
+                for (let i = 0; i < d[1].length; i += 3) {
+                    if (findAsset(d[1][i + 0], d[1][i + 1]) !== null) continue;
+                    savedAssets.push(new Image({
+                        id: d[1][i + 0],
+                        name: d[1][i + 1],
+                        data: d[1][i + 2],
+                    }));
+                }
+                document.getElementById("loadingScreen").classList.add("hidden");
                 break;
             }
             default: {

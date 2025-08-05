@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc, createPopup, savedAssets, findAsset, Image } from "./sheetScripts.js";
+import { doc, createPopup, savedAssets, findAsset, Image, playerStateData, preferences } from "./sheetScripts.js";
 
 let socket = null;
 let W, H, R;
@@ -10,8 +10,6 @@ function resize() {
     doc.gameCanvas.height = H;
     R = Math.min(W, H);
 }
-resize();
-window.addEventListener("resize", resize);
 
 let ctx = doc.gameCanvas.getContext("2d");
 ctx.lineCap = "round";
@@ -29,10 +27,34 @@ function fetchColor(id) {
     return colors[id];
 }
 
-const data = {
-    cameraLocation: {x: 0, y: 0}
-};
+// lerps data
+function lerp(from, to, p) {
+    return from + (to - from) * p;
+}
 
+class PlayerState {
+    constructor(p) {
+        this.id = p.id;
+        this.mouseLocation = p.mouseLocation ?? {x: 0, y: 0};
+        this.realMouseLocation = p.mouseLocation ?? {x: 0, y: 0};
+        this.mouseColor = p.mouseColor ?? "red";
+    }
+
+    lerpPosition() {
+        this.mouseLocation.x = lerp(this.mouseLocation.x, this.realMouseLocation.x, 0.6);
+        this.mouseLocation.y = lerp(this.mouseLocation.y, this.realMouseLocation.y, 0.6);
+    }
+
+    renderMouse() {
+        ctx.beginPath();
+        ctx.arc(
+            this.mouseLocation.x - playerStateData.cameraLocation.x + W/2,
+            this.mouseLocation.y - playerStateData.cameraLocation.y + H/2,
+            10, 0, Math.PI * 2);
+        ctx.fillStyle = fetchColor(this.mouseColor);
+        ctx.fill();
+    }
+}
 
 //_ Canvas Drawing Functions
 function drawGrid(p = {}) {
@@ -74,10 +96,12 @@ class Socket {
     constructor() {
         this.socket = null;
         this.connected = false;
+        this.inLobby = false;
     }
 
     connect() {
         if (this.socket !== null) return;
+        document.getElementById("reconnectPrompter").classList.remove("hidden");
         this.socket = new WebSocket("wss://" + location.host + "/wss");
         this.socket.binaryType = "arraybuffer";
         this.socket.onopen = () => this.open();
@@ -91,6 +115,19 @@ class Socket {
         this.socket.close();
         this.socket = null;
         this.connected = false;
+        document.getElementById("reconnectPrompter").classList.remove("hidden");
+        if (this.inLobby) {
+            console.log("Connection Lost");
+            createPopup(
+                "Connection Lost", `You have been disconnected from this lobby due to problems on the server-side. All assets and maps have been automatically saved, and you will be brought back to the main menu.`, {type: 0},
+                "Ok", function(e) {
+                    document.getElementById("simulatorMenu").classList.add("hidden");
+                    document.getElementById("frontMenu").classList.remove("hidden");
+                    socket.inLobby = false;
+                    return true;
+                },
+            );
+        }
     }
 
     talk(data) {
@@ -106,6 +143,7 @@ class Socket {
             case protocol.client.connected: {
                 console.log(`Connection confirmed by server on port "${location.host}"`);
                 this.connected = true;
+                document.getElementById("reconnectPrompter").classList.add("hidden");
                 break;
             }
             // if we tried to create a lobby and failed, ask if we want to join it instead
@@ -138,14 +176,19 @@ class Socket {
             }
             // if we successfully join/create a lobby, move us to the lobby drop page and send our assets
             case protocol.client.successfulLobbyRequest: {
+                const d = decodePacket(reader, ["int8", "string", "int32"]);
                 document.getElementById("simulatorMenu").classList.remove("hidden");
+                resize();
                 document.getElementById("frontMenu").classList.add("hidden");
                 document.getElementById("loadingScreen").classList.remove("hidden");
-                console.log(savedAssets[1]);
-                socket.talk(encodePacket(
+                this.inLobby = true;
+                playerStateData.myId = d[2];
+                console.log(`Successfully connected to lobby with code ${d[1]}.`);
+                //! Use this only when an asset is required, like a token is loaded in
+                /*socket.talk(encodePacket(
                     [protocol.server.uploadRequiredAssets, 1, savedAssets[1].id, savedAssets[1].name, savedAssets[1].data, 0],
                     ["int8", "repeat", "int32", "string", "string", "end"]
-                ));
+                ));*/
                 break;
             }
             // the server is asking if we own the needed assets and if we don't own any, we request them
@@ -178,6 +221,26 @@ class Socket {
                 document.getElementById("loadingScreen").classList.add("hidden");
                 break;
             }
+            // when we get a basic update, extract everything and update stuff
+            case protocol.client.basicUpdate: {
+                const d = decodePacket(reader, ["int8", "repeat", "int32", "float32", "float32", "string", "end"]);
+                //console.log(d[1]);
+                for (let i = 0; i < d[1].length; i += 4) {
+                    let other = null;
+                    for (let player of playerStateData.players) if (player.id === d[1][i + 0]) {other = player; break;}
+                    if (other === null) {
+                        other = new PlayerState({
+                            id: d[1][i + 0],
+                            mouseLocation: {x: d[1][i + 1], y: d[1][i + 2]},
+                            mouseColor: d[1][i + 3]
+                        });
+                        playerStateData.players.push(other);
+                    }
+                    other.realMouseLocation = {x: d[1][i + 1], y: d[1][i + 2]};
+                    other.mouseColor = d[1][i + 3];
+                }
+                break;
+            }
             default: {
                 console.warn(`An unknown code has been recieved: ${reader.getInt8(0)}`);
                 break;
@@ -196,6 +259,7 @@ class Socket {
     close(reason) {
         console.log(`Socket closed for reason:`);
         console.log(reason)
+        this.disconnect();
     }
 }
 
@@ -203,29 +267,12 @@ socket = new Socket();
 socket.connect();
 document.getElementById("loadingScreen").classList.add("hidden");
 
-// an update loop to keep the game running
-function update() {
-    ctx.clearRect(0, 0, W, H);
-    
-    drawGrid({
-        shape: "square",
-        origin: {x: W/2 + data.cameraLocation.x, y: H/2 + data.cameraLocation.y},
-        dim: {x: 10, y: 5},
-        radius: W/20,
-        color: "red",
-        lineWidth: R * 0.01,
-    });
-
-    requestAnimationFrame(update);
-}
-requestAnimationFrame(update);
-
 // when dragging across the canvas, change the camera position
 doc.gameCanvas.addEventListener("mousedown", function(e) {
-    data.originalCameraLocation = structuredClone(data.cameraLocation);
+    playerStateData.originalCameraLocation = structuredClone(playerStateData.cameraLocation);
     function drag(e2) {
-        data.cameraLocation.x = data.originalCameraLocation.x + e2.clientX - e.clientX;
-        data.cameraLocation.y = data.originalCameraLocation.y + e2.clientY - e.clientY;
+        playerStateData.cameraLocation.x = playerStateData.originalCameraLocation.x + e.clientX - e2.clientX;
+        playerStateData.cameraLocation.y = playerStateData.originalCameraLocation.y + e.clientY - e2.clientY;
     }
     function release(e2) {
         document.removeEventListener("mousemove", drag);
@@ -234,7 +281,21 @@ doc.gameCanvas.addEventListener("mousedown", function(e) {
     
     document.addEventListener("mousemove", drag);
     document.addEventListener("mouseup", release);
-})
+});
+
+// when the mouse moves, update the server with this info
+doc.gameCanvas.addEventListener("mousemove", function(e) {
+    if (!socket.inLobby) return;
+    playerStateData.mousePosition = {x: e.clientX, y: e.clientY};
+    socket.talk(encodePacket([
+        protocol.server.mouseMoveData,
+        playerStateData.cameraLocation.x,
+        playerStateData.cameraLocation.y,
+        playerStateData.mousePosition.x - W/2,
+        playerStateData.mousePosition.y - H/2,
+        preferences.mouseColor,
+    ], ["int8", "float32", "float32", "float32", "float32", "string"]));
+});
 
 /* Add menu navigation events to buttons */
 function moveHolders(from, to) {
@@ -279,6 +340,12 @@ document.getElementById("frontJoinGameJoinButton").addEventListener("click", fun
 });
 
 
+
+// the disconnect prompter, for when a person DCs
+document.getElementById("reconnectPrompter").addEventListener("click", function(e) {
+    socket.connect();
+});
+
 /* Load saved input contents */
 function saveInput(input) {
     input.addEventListener("change", function(e) {
@@ -292,3 +359,30 @@ saveInput(document.getElementById("frontCreateGameCodeInput"));
 
 saveInput(document.getElementById("frontJoinGameNameInput"));
 saveInput(document.getElementById("frontJoinGameCodeInput"));
+
+
+// an update loop to keep the game running
+function update() {
+    ctx.clearRect(0, 0, W, H);
+
+    for (let player of playerStateData.players) {
+        player.lerpPosition();
+        //player.mouseLocation = player.realMouseLocation;
+    }
+    
+    drawGrid({
+        shape: "square",
+        origin: {x: W/2 - playerStateData.cameraLocation.x, y: H/2 - playerStateData.cameraLocation.y},
+        dim: {x: 10, y: 5},
+        radius: W/20,
+        color: "red",
+        lineWidth: R * 0.01,
+    });
+
+    for (let player of playerStateData.players) {
+        player.renderMouse();
+    }
+
+    requestAnimationFrame(update);
+}
+requestAnimationFrame(update);

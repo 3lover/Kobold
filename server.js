@@ -39,7 +39,6 @@ class Lobby {
 
     // uploads a package of assets from a client
     uploadAssets(assets) {
-        console.log(assets);
         for (let i = 0; i < assets.length; i += 3) {
             //! make this sense type later
             this.objects.images.push(new Image({id: assets[i + 0], name: assets[i + 1], data: assets[i + 2]}));
@@ -87,7 +86,9 @@ class Lobby {
         this.players.push(player);
         console.log(`${player.name} has joined ${this.code}`);
 
-        player.talk(ptools.encodePacket([protocol.client.successfulLobbyRequest, this.code], ["int8", "string"]));
+        player.talk(ptools.encodePacket([protocol.client.successfulLobbyRequest, this.code, player.id], ["int8", "string", "int32"]));
+
+        this.checkAssets();
     }
 
     // removes a player from the lobby
@@ -116,6 +117,27 @@ class Lobby {
         return new Date().getTime() - this.creationTime;
     }
 
+    // sends a basic update with only data that changes every frame
+    sendBasicUpdate() {
+        let sending = [protocol.client.basicUpdate];
+
+        // add player mouse positions
+        sending.push(this.players.length);
+        for (let player of this.players) {
+            sending.push(
+                player.id,
+                player.mouseLocation.x + player.cameraLocation.x,
+                player.mouseLocation.y + player.cameraLocation.y,
+                player.mouseColor
+            );
+        }
+        sending.push(0);
+
+        for (let player of this.players) {
+            player.talk(ptools.encodePacket(sending, ["int8", "repeat", "int32", "float32", "float32", "string", "end"]));
+        }
+    }
+
     static lobbies = [];
     static lobbyWithCode(code) {
         for (let l of Lobby.lobbies) {
@@ -130,7 +152,11 @@ class Player {
     constructor(p) {
         this.name = p.name;
         this.socket = p.socket;
+        this.id = Math.floor(Math.random() * 2**31);
         this.host = p.host;
+        this.mouseLocation = {x: 0, y: 0};
+        this.mouseColor = "red";
+        this.cameraLocation = {x: 0, y: 0};
     }
 
     // sends a message through a player's socket
@@ -291,6 +317,15 @@ const sockets = {
                     this.playerLobby.uploadAssets(d[1]);
                     break;
                 }
+                // when a player moves their mouse, we update their last known mouse position
+                case protocol.server.mouseMoveData: {
+                    if (!this.playerLobby) return;
+                    const d = ptools.decodePacket(reader, ["int8", "float32", "float32", "float32", "float32", "string"]);
+                    this.playerInstance.cameraLocation = {x: d[1], y: d[2]};
+                    this.playerInstance.mouseLocation = {x: d[3], y: d[4]};
+                    this.playerInstance.mouseColor = d[5];
+                    break;
+                }
                 default: {
                     console.warn(`An unknown code has been recieved: ${reader.getInt8(0)}`);
                     break;
@@ -346,8 +381,11 @@ httpsServer.listen(8443, () => {
     console.log("Server running on port 8443")
 });
 
-
+// runs at 30Hz to update the game
 function update() {
-    
+    for (let l of Lobby.lobbies) {
+        // send each player a basic data update with things like player mouse positions
+        l.sendBasicUpdate();
+    }
 }
-setInterval(update, 1000/60);
+setInterval(update, 1000/30);

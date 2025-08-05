@@ -45,6 +45,33 @@ export class Image {
     }
 }
 
+export let playerStateData = {
+    mousePosition: {x: 0, y: 0},
+    cameraLocation: {x: 0, y: 0},
+    originalCameraLocation: {x: 0, y: 0},
+    players: [],
+    myId: -1,
+};
+
+function randomColor(noWhites = false) {
+    const validColors = [
+        "black", "veryDarkGrey", "darkGrey", "grey", "lightGrey", "veryLightGrey", "white",
+        "red", "lightRed", "veryLightRed", "darkRed", "veryDarkRed", "greyRed",
+        "orange", "lightOrange", "veryLightOrange", "darkOrange", "veryDarkOrange", "greyOrange",
+        "yellow", "lightYellow", "veryLightYellow", "darkYellow", "veryDarkYellow", "greyYellow",
+        "green", "lightGreen", "veryLightGreen", "darkGreen", "veryDarkGreen", "greyGreen",
+        "cyan", "lightCyan", "veryLightCyan", "darkCyan", "veryDarkCyan", "greyCyan",
+        "blue", "lightBlue", "veryLightBlue", "darkBlue", "veryDarkBlue", "greyBlue",
+        "purple", "lightPurple", "veryLightPurple", "darkPurple", "veryDarkPurple", "greyPurple",
+        "pink", "lightPink", "veryLightPink", "darkPink", "veryDarkPink", "greyPink"
+    ];
+    if (noWhites) return validColors[Math.floor(Math.random() * (validColors.length - 7)) + 7];
+    return validColors[Math.floor(Math.random() * validColors.length)];
+}
+export let preferences = {
+    mouseColor: randomColor(true),
+};
+
 // possible error popups
 function error(id) {
     switch (id) {
@@ -1144,7 +1171,7 @@ for (let c of classNames) {
     await fetchClass(c, c === classNames[classNames.length - 1]);
 }
 
-createPopup(
+/*createPopup(
     "Test File Upload", "This wll be the asset shared with the server for testing purposes.",
     {type: 2},
     "Cancel", function(e) {return true},
@@ -1156,4 +1183,4 @@ createPopup(
         reader.readAsDataURL(doc.popupMenuFileDrop.files[0]);
         return true;
     }
-);
+);*/

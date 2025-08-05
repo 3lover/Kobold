@@ -147,13 +147,26 @@ span {
    z-index: -1;
 }
 
+/* For reconnecting to the socket */
+#reconnectPrompter {
+    position: absolute;
+    left: 80vw;
+    top: 0;
+    width: 20vw;
+    height: 10vh;
+    font-size: 3vmin;
+    color: var(--white);
+    background-color: var(--grey);
+    z-index: 10002;
+}
+
 /* The custom context menu, which follows the mouse and is show and frozen on right click */
 #contextMenu {
     background-color: var(--grey);
     height: auto;
     width: auto;
     position: absolute;
-    z-index: 9999999;
+    z-index: 10000;
     transition: 0s;
 }
 
@@ -267,7 +280,7 @@ span {
     width: 100vw;
     top: 0;
     height: 100vh;
-    z-index: 999999;
+    z-index: 10001;
     background-color: transparent;
 }
 
@@ -1170,6 +1183,7 @@ span {
     font-size: 6vh;
     text-align: center;
 }
+
 /*_ The Front Page */
 
 /* The front page basic elements */

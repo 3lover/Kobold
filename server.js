@@ -196,13 +196,13 @@ class Token extends Object {
     constructor(p) {
         super(p);
 
-        this.radius = 0.05;
-        this.units = "viewMin";
+        this.radius = 20;
 
         this.shape = "circle";
         this.cropImage = true;
 
         this.linkedSheet = null;
+        this.linkedImage = null;
     }
 }
 

@@ -22,6 +22,7 @@ export const doc = {
     characterReferenceSideMenu: document.getElementById("characterReferenceSideMenu"),
     diceRollPopupHolder: document.getElementById("diceRollPopupHolder"),
     gameCanvas: document.getElementById("gameCanvas"),
+    buildCanvas: document.getElementById("buildCanvas"),
 }
 
 // basic data storage for characters, and the currently viewed character
@@ -36,24 +37,17 @@ export let classData = {};
 if (localStorage.getItem("savedAssets")) savedAssets = JSON.parse(localStorage.getItem("savedAssets"));
 else await loadDefaultCharacterSheet();
 
-export class Image {
-    constructor(p) {
-        this.type = p.type ?? "image";
-        this.data = p.data ?? "";
-        this.id = p.id ?? Math.floor(Math.random() * 2**31);
-        this.name = p.name ?? "";
-    }
-}
-
 export let playerStateData = {
     mousePosition: {x: 0, y: 0},
     cameraLocation: {x: 0, y: 0},
     originalCameraLocation: {x: 0, y: 0},
     players: [],
+    tokens: [],
+    grids: [],
     myId: -1,
 };
 
-function randomColor(noWhites = false) {
+export function randomColor(noWhites = false) {
     const validColors = [
         "black", "veryDarkGrey", "darkGrey", "grey", "lightGrey", "veryLightGrey", "white",
         "red", "lightRed", "veryLightRed", "darkRed", "veryDarkRed", "greyRed",
@@ -343,7 +337,7 @@ doc.popupMenuFileDrop.addEventListener("change", function(e) {
 //_ Character sheet functionalities
 
 // when the user opens the right click menu, this adds all the options for an item
-function populateRightClick(buttons = []) {
+export function populateRightClick(buttons = []) {
     while (doc.contextMenu.children.length > 0) doc.contextMenu.lastChild.remove();
 
     for (let button of buttons) {
@@ -1082,6 +1076,7 @@ export function createPopup(title, description, special, button1, callback1, but
     doc.popupMenuSingleButton.classList.add("hidden");
     doc.popupMenuLeftDoubleButton.classList.add("hidden");
     doc.popupMenuRightDoubleButton.classList.add("hidden");
+    doc.popupMenuFileDrop.classList.add("hidden");
 
     switch (special.type) {
         // just simple text
@@ -1170,17 +1165,3 @@ async function fetchClass(name, final) {
 for (let c of classNames) {
     await fetchClass(c, c === classNames[classNames.length - 1]);
 }
-
-/*createPopup(
-    "Test File Upload", "This wll be the asset shared with the server for testing purposes.",
-    {type: 2},
-    "Cancel", function(e) {return true},
-    "Upload", function(e) {
-        const reader = new FileReader();
-        reader.onload = function() {
-            savedAssets.push(new Image({data: reader.result}));
-        };
-        reader.readAsDataURL(doc.popupMenuFileDrop.files[0]);
-        return true;
-    }
-);*/

@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc, createPopup, savedAssets, findAsset, Image, playerStateData, preferences } from "./sheetScripts.js";
+import { doc, createPopup, savedAssets, findAsset, playerStateData, preferences, populateRightClick, randomColor } from "./sheetScripts.js";
 
 let socket = null;
 let W, H, R;
@@ -8,11 +8,15 @@ function resize() {
     H = doc.gameCanvas.getBoundingClientRect().height;
     doc.gameCanvas.width = W;
     doc.gameCanvas.height = H;
+    doc.buildCanvas.width = W;
+    doc.buildCanvas.height = H;
     R = Math.min(W, H);
 }
 
 let ctx = doc.gameCanvas.getContext("2d");
 ctx.lineCap = "round";
+let buildctx = doc.buildCanvas.getContext("2d");
+buildctx.lineCap = "round";
 
 let protocol = null;
 async function fetchProtocol() {
@@ -30,6 +34,71 @@ function fetchColor(id) {
 // lerps data
 function lerp(from, to, p) {
     return from + (to - from) * p;
+}
+
+class SavedImage {
+    constructor(p) {
+        this.type = p.type ?? "image";
+        this.data = p.data ?? "";
+        this.id = p.id ?? Math.floor(Math.random() * 2**31);
+        this.name = p.name ?? "";
+        this.drawableObject = new Image();
+        this.drawableObject.src = this.data;
+    }
+}
+
+class Token {
+    constructor(p) {
+        this.type = p.type ?? "token";
+
+        this.name = p.name ?? "Unnamed Token";
+        this.description = p.description ?? "";
+
+        this.radius = p.radius ?? 20;
+        this.position = p.position ?? {x: 0, y: 0};
+
+        this.shape = p.shape ?? "circle";
+        this.cropImage = p.cropImage ?? true;
+        this.baseColor = p.baseColor ?? "red";
+        this.lineColor = p.lineColor ?? "white";
+        this.lineWidth = p.lineWidth ?? 5;
+        this.zIndex = p.zIndex ?? 0;
+
+        this.linkedSheet = p.linkedSheet ?? null;
+        this.linkedImage = p.linkedImage ?? null;
+
+        //socket.talk(encodePacket([protocol.server.tokenCreated, ], ["int8"]))
+    }
+
+    render() {
+        ctx.beginPath();
+        ctx.save();
+        ctx.translate(this.position.x - playerStateData.cameraLocation.x + W/2, this.position.y - playerStateData.cameraLocation.y + H/2);
+        ctx.arc(
+            0,
+            0,
+            this.radius, 0, Math.PI * 2
+        );
+        ctx.fillStyle = fetchColor(this.baseColor);
+        ctx.strokeStyle = fetchColor(this.lineColor);
+        ctx.lineWidth = this.lineWidth;
+        ctx.fill();
+        ctx.stroke();
+
+        // draw the linked image, if one exists
+        if (this.linkedImage.drawableObject.complete) {
+            buildctx.clearRect(0, 0, W, H);
+            buildctx.beginPath();
+            buildctx.arc(this.radius, this.radius, this.radius, 0, Math.PI * 2);
+            buildctx.fill();
+            buildctx.globalCompositeOperation = "source-in";
+            buildctx.drawImage(this.linkedImage.drawableObject, 0, 0, this.radius * 2, this.radius * 2);
+            buildctx.globalCompositeOperation = "source-over";
+
+            ctx.drawImage(buildCanvas, -this.radius, -this.radius);
+        }
+        ctx.restore();
+    }
 }
 
 class PlayerState {
@@ -50,7 +119,8 @@ class PlayerState {
         ctx.arc(
             this.mouseLocation.x - playerStateData.cameraLocation.x + W/2,
             this.mouseLocation.y - playerStateData.cameraLocation.y + H/2,
-            10, 0, Math.PI * 2);
+            10, 0, Math.PI * 2
+        );
         ctx.fillStyle = fetchColor(this.mouseColor);
         ctx.fill();
     }
@@ -212,7 +282,7 @@ class Socket {
                 console.log("Data packet recieved!");
                 for (let i = 0; i < d[1].length; i += 3) {
                     if (findAsset(d[1][i + 0], d[1][i + 1]) !== null) continue;
-                    savedAssets.push(new Image({
+                    savedAssets.push(new SavedImage({
                         id: d[1][i + 0],
                         name: d[1][i + 1],
                         data: d[1][i + 2],
@@ -297,6 +367,39 @@ doc.gameCanvas.addEventListener("mousemove", function(e) {
     ], ["int8", "float32", "float32", "float32", "float32", "string"]));
 });
 
+/* Sense where a player right clicks, and add menu options accordingly */
+doc.gameCanvas.addEventListener("contextmenu", function(e) {
+    populateRightClick([{
+        name: "Create Token (testing)",
+        function: function() {
+            createPopup(
+                "Upload Image", "Upload an image for the token.",
+                {type: 2},
+                "Cancel", function(e) {return true},
+                "Upload", function(e) {
+                    const reader = new FileReader();
+                    reader.onload = function() {
+                        const img = new SavedImage({
+                            data: reader.result
+                        });
+                        savedAssets.push(img);
+                        
+                        playerStateData.tokens.push(new Token({
+                            name: "Random Token",
+                            description: "Something cool goes here I think",
+                            position: {x: Math.random() * 100 - 50, y: Math.random() * 100 - 50},
+                            baseColor: randomColor(),
+                            linkedImage: img,
+                        }));
+                    };
+                    reader.readAsDataURL(doc.popupMenuFileDrop.files[0]);
+                    return true;
+                }
+            );
+        }
+    }]);
+});
+
 /* Add menu navigation events to buttons */
 function moveHolders(from, to) {
     from.classList.remove("fadeInHolderAnimation");
@@ -365,11 +468,6 @@ saveInput(document.getElementById("frontJoinGameCodeInput"));
 function update() {
     ctx.clearRect(0, 0, W, H);
 
-    for (let player of playerStateData.players) {
-        player.lerpPosition();
-        //player.mouseLocation = player.realMouseLocation;
-    }
-    
     drawGrid({
         shape: "square",
         origin: {x: W/2 - playerStateData.cameraLocation.x, y: H/2 - playerStateData.cameraLocation.y},
@@ -379,7 +477,17 @@ function update() {
         lineWidth: R * 0.01,
     });
 
+    // draw every token by their z-index
+    playerStateData.tokens = playerStateData.tokens.sort(function(a, b) {
+        return a.zIndex - b.zIndex;
+    });
+    for (let token of playerStateData.tokens) {
+        token.render();
+    }
+
+    // finally, draw player's mouses over everything
     for (let player of playerStateData.players) {
+        player.lerpPosition();
         player.renderMouse();
     }
 

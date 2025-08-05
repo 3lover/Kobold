@@ -16,6 +16,7 @@
         "joinLobby": 2,
         "requestedAssets": 3,
         "uploadRequiredAssets": 4,
-        "mouseMoveData": 5
+        "mouseMoveData": 5,
+        "tokenCreated": 6
     }
 }

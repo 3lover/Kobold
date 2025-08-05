@@ -1286,4 +1286,14 @@ span {
     top: 0;
     position: absolute;
     background-color: var(--black);
+    z-index: 3;
+}
+#buildCanvas {
+    width: 100vw;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    position: absolute;
+    background-color: var(--black);
+    z-index: 0;
 }

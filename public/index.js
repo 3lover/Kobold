@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc, createPopup, savedAssets, findAsset, playerStateData, preferences, populateRightClick, randomColor } from "./sheetScripts.js";
+import { doc, createPopup, savedAssets, findAsset, psd, preferences, populateRightClick, randomColor } from "./sheetScripts.js";
 
 let socket = null;
 let W, H, R;
@@ -73,30 +73,91 @@ class Token {
     render() {
         ctx.beginPath();
         ctx.save();
-        ctx.translate(this.position.x - playerStateData.cameraLocation.x + W/2, this.position.y - playerStateData.cameraLocation.y + H/2);
+        ctx.translate(
+            (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
+            (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
+        );
         ctx.arc(
             0,
             0,
-            this.radius, 0, Math.PI * 2
+            this.radius * psd.cameraLocation.s, 0, Math.PI * 2
         );
         ctx.fillStyle = fetchColor(this.baseColor);
         ctx.strokeStyle = fetchColor(this.lineColor);
-        ctx.lineWidth = this.lineWidth;
+        ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
         ctx.fill();
         ctx.stroke();
 
         // draw the linked image, if one exists
-        if (this.linkedImage.drawableObject.complete) {
+        if (this.linkedImage && this.linkedImage.drawableObject.complete) {
             buildctx.clearRect(0, 0, W, H);
             buildctx.beginPath();
             buildctx.arc(this.radius, this.radius, this.radius, 0, Math.PI * 2);
             buildctx.fill();
             buildctx.globalCompositeOperation = "source-in";
-            buildctx.drawImage(this.linkedImage.drawableObject, 0, 0, this.radius * 2, this.radius * 2);
+            buildctx.drawImage(this.linkedImage.drawableObject, 0, 0, this.radius * 2 * psd.cameraLocation.s, this.radius * 2 * psd.cameraLocation.s);
             buildctx.globalCompositeOperation = "source-over";
 
             ctx.drawImage(buildCanvas, -this.radius, -this.radius);
         }
+        ctx.restore();
+    }
+}
+
+class Grid {
+    constructor(p) {
+        this.type = p.type ?? "grid";
+
+        this.name = p.name ?? "Unnamed Grid";
+
+        this.radius = p.radius ?? 50;
+        this.dim = p.dim ?? {x: 10, y: 10};
+        this.position = p.position ?? {x: 0, y: 0};
+
+        this.shape = p.shape ?? "square";
+        this.cropImage = p.cropImage ?? true;
+        this.lineColor = p.lineColor ?? "red";
+        this.lineWidth = p.lineWidth ?? 5;
+        this.zIndex = p.zIndex ?? -1;
+
+        this.linkedImage = p.linkedImage ?? null;
+
+        //socket.talk(encodePacket([protocol.server.tokenCreated, ], ["int8"]))
+    }
+
+    render() {
+        ctx.beginPath();
+        ctx.save();
+        ctx.translate(
+            (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
+            (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
+        );
+        ctx.strokeStyle = fetchColor(this.lineColor);
+        ctx.lineWidth = this.lineWidth;
+        switch (this.shape) {
+            case "square": {
+                ctx.translate(-(this.radius * this.dim.x / 2) * psd.cameraLocation.s, -(this.radius * this.dim.y / 2) * psd.cameraLocation.s);
+                for (let i = 0; i < this.dim.x + 1; i++) {
+                    ctx.moveTo(this.radius * i * psd.cameraLocation.s, 0);
+                    ctx.lineTo(this.radius * i * psd.cameraLocation.s, this.radius * this.dim.y * psd.cameraLocation.s);
+                }
+                for (let i = 0; i < this.dim.y + 1; i++) {
+                    ctx.moveTo(0, this.radius * i * psd.cameraLocation.s);
+                    ctx.lineTo(this.radius * this.dim.x * psd.cameraLocation.s, this.radius * i * psd.cameraLocation.s);
+                }
+                ctx.stroke();
+                ctx.restore();
+                break;
+            }
+            case "hex": {
+                break;
+            }
+            default: {
+                console.log("unknown grid shape requested");
+                return;
+            }
+        }
+
         ctx.restore();
     }
 }
@@ -117,48 +178,13 @@ class PlayerState {
     renderMouse() {
         ctx.beginPath();
         ctx.arc(
-            this.mouseLocation.x - playerStateData.cameraLocation.x + W/2,
-            this.mouseLocation.y - playerStateData.cameraLocation.y + H/2,
-            10, 0, Math.PI * 2
+            (this.mouseLocation.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
+            (this.mouseLocation.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2,
+            5 * psd.cameraLocation.s, 0, Math.PI * 2
         );
         ctx.fillStyle = fetchColor(this.mouseColor);
         ctx.fill();
     }
-}
-
-//_ Canvas Drawing Functions
-function drawGrid(p = {}) {
-    ctx.beginPath();
-    ctx.strokeStyle = fetchColor(p.color);
-    ctx.lineWidth = p.lineWidth;
-    switch (p.shape) {
-        case "square": {
-            ctx.save();
-            ctx.translate(p.origin.x - p.radius * p.dim.x / 2, p.origin.y - p.radius * p.dim.y / 2);
-            for (let i = 0; i < p.dim.x + 1; i++) {
-                ctx.moveTo(p.radius * i, 0);
-                ctx.lineTo(p.radius * i, p.radius * p.dim.y);
-            }
-            for (let i = 0; i < p.dim.y + 1; i++) {
-                ctx.moveTo(0, p.radius * i);
-                ctx.lineTo(p.radius * p.dim.x, p.radius * i);
-            }
-            ctx.stroke();
-            ctx.restore();
-            break;
-        }
-        case "hex": {
-            break;
-        }
-        default: {
-            console.log("unknown grid shape requested");
-            return;
-        }
-    }
-    ctx.strokeStyle = fetchColor("lightBlue");
-    ctx.beginPath();
-    ctx.arc(W/2, H/2, 20, 0, Math.PI * 2);
-    ctx.stroke();
 }
 
 // our websocket connection
@@ -252,7 +278,7 @@ class Socket {
                 document.getElementById("frontMenu").classList.add("hidden");
                 document.getElementById("loadingScreen").classList.remove("hidden");
                 this.inLobby = true;
-                playerStateData.myId = d[2];
+                psd.myId = d[2];
                 console.log(`Successfully connected to lobby with code ${d[1]}.`);
                 //! Use this only when an asset is required, like a token is loaded in
                 /*socket.talk(encodePacket(
@@ -297,14 +323,14 @@ class Socket {
                 //console.log(d[1]);
                 for (let i = 0; i < d[1].length; i += 4) {
                     let other = null;
-                    for (let player of playerStateData.players) if (player.id === d[1][i + 0]) {other = player; break;}
+                    for (let player of psd.players) if (player.id === d[1][i + 0]) {other = player; break;}
                     if (other === null) {
                         other = new PlayerState({
                             id: d[1][i + 0],
                             mouseLocation: {x: d[1][i + 1], y: d[1][i + 2]},
                             mouseColor: d[1][i + 3]
                         });
-                        playerStateData.players.push(other);
+                        psd.players.push(other);
                     }
                     other.realMouseLocation = {x: d[1][i + 1], y: d[1][i + 2]};
                     other.mouseColor = d[1][i + 3];
@@ -339,10 +365,10 @@ document.getElementById("loadingScreen").classList.add("hidden");
 
 // when dragging across the canvas, change the camera position
 doc.gameCanvas.addEventListener("mousedown", function(e) {
-    playerStateData.originalCameraLocation = structuredClone(playerStateData.cameraLocation);
+    psd.originalCameraLocation = structuredClone(psd.cameraLocation);
     function drag(e2) {
-        playerStateData.cameraLocation.x = playerStateData.originalCameraLocation.x + e.clientX - e2.clientX;
-        playerStateData.cameraLocation.y = playerStateData.originalCameraLocation.y + e.clientY - e2.clientY;
+        psd.cameraLocation.x = psd.originalCameraLocation.x + (e.clientX - e2.clientX) / psd.cameraLocation.s;
+        psd.cameraLocation.y = psd.originalCameraLocation.y + (e.clientY - e2.clientY) / psd.cameraLocation.s;
     }
     function release(e2) {
         document.removeEventListener("mousemove", drag);
@@ -353,16 +379,29 @@ doc.gameCanvas.addEventListener("mousedown", function(e) {
     document.addEventListener("mouseup", release);
 });
 
+// when we scroll, adjust the zoom
+doc.gameCanvas.addEventListener("wheel", function(e) {
+    let relativeX = e.clientX - W/2;
+    let relativeY = e.clientY - H/2;
+    let newScroll = psd.cameraLocation.s * (1 - 0.1 * Math.sign(e.deltaY));
+    newScroll = Math.min(Math.max(newScroll, 0.2), 10);
+    
+    psd.cameraLocation.x = psd.cameraLocation.x + (relativeX / psd.cameraLocation.s) - (relativeX / newScroll);
+    psd.cameraLocation.y = psd.cameraLocation.y + (relativeY / psd.cameraLocation.s) - (relativeY / newScroll);
+    
+    psd.cameraLocation.s = newScroll;
+});
+
 // when the mouse moves, update the server with this info
 doc.gameCanvas.addEventListener("mousemove", function(e) {
     if (!socket.inLobby) return;
-    playerStateData.mousePosition = {x: e.clientX, y: e.clientY};
+    psd.mousePosition = {x: e.clientX, y: e.clientY};
     socket.talk(encodePacket([
         protocol.server.mouseMoveData,
-        playerStateData.cameraLocation.x,
-        playerStateData.cameraLocation.y,
-        playerStateData.mousePosition.x - W/2,
-        playerStateData.mousePosition.y - H/2,
+        psd.cameraLocation.x,
+        psd.cameraLocation.y,
+        (psd.mousePosition.x - W/2) / psd.cameraLocation.s,
+        (psd.mousePosition.y - H/2) / psd.cameraLocation.s,
         preferences.mouseColor,
     ], ["int8", "float32", "float32", "float32", "float32", "string"]));
 });
@@ -372,7 +411,13 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
     populateRightClick([{
         name: "Create Token (testing)",
         function: function() {
-            createPopup(
+            psd.tokens.push(new Token({
+                name: "Random Token",
+                description: "Something cool goes here I think",
+                position: {x: Math.random() * 500 - 250, y: Math.random() * 500 - 250},
+                baseColor: randomColor(),
+            }));
+            /*createPopup(
                 "Upload Image", "Upload an image for the token.",
                 {type: 2},
                 "Cancel", function(e) {return true},
@@ -384,7 +429,7 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                         });
                         savedAssets.push(img);
                         
-                        playerStateData.tokens.push(new Token({
+                        psd.tokens.push(new Token({
                             name: "Random Token",
                             description: "Something cool goes here I think",
                             position: {x: Math.random() * 100 - 50, y: Math.random() * 100 - 50},
@@ -395,7 +440,7 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                     reader.readAsDataURL(doc.popupMenuFileDrop.files[0]);
                     return true;
                 }
-            );
+            );*/
         }
     }]);
 });
@@ -468,25 +513,28 @@ saveInput(document.getElementById("frontJoinGameCodeInput"));
 function update() {
     ctx.clearRect(0, 0, W, H);
 
-    drawGrid({
-        shape: "square",
-        origin: {x: W/2 - playerStateData.cameraLocation.x, y: H/2 - playerStateData.cameraLocation.y},
-        dim: {x: 10, y: 5},
-        radius: W/20,
-        color: "red",
-        lineWidth: R * 0.01,
-    });
-
-    // draw every token by their z-index
-    playerStateData.tokens = playerStateData.tokens.sort(function(a, b) {
+    // draw every grid by their z-index
+    psd.grids = psd.grids.sort(function(a, b) {
         return a.zIndex - b.zIndex;
     });
-    for (let token of playerStateData.tokens) {
+    for (let grid of psd.grids) {
+        grid.render();
+    }
+    ctx.beginPath();
+    ctx.strokeStyle = "yellow";
+    ctx.arc(W/2, H/2, 5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // draw every token by their z-index
+    psd.tokens = psd.tokens.sort(function(a, b) {
+        return a.zIndex - b.zIndex;
+    });
+    for (let token of psd.tokens) {
         token.render();
     }
 
     // finally, draw player's mouses over everything
-    for (let player of playerStateData.players) {
+    for (let player of psd.players) {
         player.lerpPosition();
         player.renderMouse();
     }
@@ -494,3 +542,17 @@ function update() {
     requestAnimationFrame(update);
 }
 requestAnimationFrame(update);
+
+
+psd.tokens.push(new Token({
+    name: "Random Token",
+    description: "Something cool goes here I think",
+    position: {x: Math.random() * 500 - 250, y: Math.random() * 500 - 250},
+    baseColor: randomColor(),
+}));
+
+psd.grids.push(new Grid({
+    name: "Random Background",
+    position: {x: 0, y: 0},
+    lineColor: "red",
+}));

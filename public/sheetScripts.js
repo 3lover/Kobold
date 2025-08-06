@@ -37,9 +37,9 @@ export let classData = {};
 if (localStorage.getItem("savedAssets")) savedAssets = JSON.parse(localStorage.getItem("savedAssets"));
 else await loadDefaultCharacterSheet();
 
-export let playerStateData = {
+export let psd = {
     mousePosition: {x: 0, y: 0},
-    cameraLocation: {x: 0, y: 0},
+    cameraLocation: {x: 0, y: 0, s: 1},
     originalCameraLocation: {x: 0, y: 0},
     players: [],
     tokens: [],

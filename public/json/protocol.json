@@ -8,7 +8,9 @@
         "successfulLobbyRequest": 5,
         "assetInquiryPacket": 6,
         "assetDataPacket": 7,
-        "basicUpdate": 8
+        "basicUpdate": 8,
+        "syncNewToken": 9,
+        "missingAssets": 10
     },
     "server": {
         "confirmConnection": 0,
@@ -17,6 +19,7 @@
         "requestedAssets": 3,
         "uploadRequiredAssets": 4,
         "mouseMoveData": 5,
-        "tokenCreated": 6
+        "tokenCreated": 6,
+        "sceneSanityCheck": 7
     }
 }

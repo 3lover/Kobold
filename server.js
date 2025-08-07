@@ -34,26 +34,36 @@ class Lobby {
     findAssetById(id, name) {
         for (let sheet of this.objects.sheets) if (sheet.id === id && sheet.name === name) return sheet;
         for (let image of this.objects.images) if (image.id === id && image.name === name) return image;
+        for (let token of this.objects.tokens) if (token.id === id && token.name === name) return token;
+        for (let grid of this.objects.grids) if (grid.id === id && grid.name === name) return grid;
         return null;
     }
 
     // uploads a package of assets from a client
     uploadAssets(assets) {
+        let newAsset = false;
         for (let i = 0; i < assets.length; i += 3) {
             //! make this sense type later
+            for (let image of this.objects.images) if (image.id === assets[i + 0] && image.name === assets[i + 1]) continue;
             this.objects.images.push(new Image({id: assets[i + 0], name: assets[i + 1], data: assets[i + 2]}));
+            newAsset = true;
         }
+        if (!newAsset) return;
         console.log("assets uploaded");
         this.checkAssets();
     }
 
     // checks assets for all players to make sure they have what they need
     checkAssets() {
-        let assetPacket = [protocol.client.assetInquiryPacket, this.objects.sheets.length + this.objects.images.length];
+        let assetPacket = [
+            protocol.client.assetInquiryPacket,
+            this.objects.sheets.length + this.objects.images.length + this.objects.tokens.length + this.objects.grids.length
+        ];
         for (let sheet of this.objects.sheets) assetPacket.push(sheet.id, sheet.name);
         for (let image of this.objects.images) assetPacket.push(image.id, image.name);
+        for (let token of this.objects.tokens) assetPacket.push(token.id, token.name);
+        for (let grid of this.objects.grids) assetPacket.push(grid.id, grid.name);
         assetPacket.push(0);
-        console.log(assetPacket);
         for (let player of this.players) {
             player.talk(ptools.encodePacket(assetPacket, ["int8", "repeat", "int32", "string", "end"]));
         }
@@ -62,17 +72,63 @@ class Lobby {
     // packages assets for a player to send them the data they need for saving
     packageAssets(assets, player) {
         let requestedAssets = [protocol.client.assetDataPacket, 0];
+        let requestedObjects = [];
         for (let i = 0; i < assets.length; i += 2) {
             const a = this.findAssetById(assets[i + 0], assets[i + 1]);
             if (a === null) {
                 console.warn(`Asset ${assets[i + 1]} (${assets[i + 0]}) requested but not found`);
                 continue;
             }
+            if (a.type === "token" || a.type === "grid") {
+                requestedObjects.push(a);
+                continue;
+            }
             requestedAssets.push(a.id, a.name, a.toString());
             requestedAssets[1]++;
         }
         requestedAssets.push(0);
-        player.talk(ptools.encodePacket(requestedAssets, ["int8", "repeat", "int32", "string", "string", "end"]));
+
+        // now take all of the objects the client doesn't have and send them too
+        requestedAssets.push(requestedObjects.length);
+        for (let obj of requestedObjects) {
+            requestedAssets = requestedAssets.concat(obj.toExport());
+        }
+        requestedAssets.push(0);
+
+        player.talk(ptools.encodePacket(requestedAssets, [
+            "int8", 
+            "repeat", "int32", "string", "string", "end", 
+            "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "end"
+        ]));
+
+    }
+
+    // adds a token to the server, and syncs it with all players
+    addToken(d) {
+        let tokenFound = false;
+        for (let token of this.objects.tokens) if (token.id === d[2] && token.name === d[3]) tokenFound = true;
+        if (tokenFound) return;
+
+        let token = new Token({
+            type: d[1],
+            id: d[2],
+            name: d[3],
+            description: d[4],
+            radius: d[5],
+            position: {x: d[6], y: d[7]},
+            shape: d[8],
+            cropImage: d[9],
+            baseColor: d[10],
+            lineColor: d[11],
+            lineWidth: d[12],
+            zIndex: d[13],
+            linkedSheetAwait: {id: d[14], name: d[15]},
+            linkedImageAwait: {id: d[16], name: d[17]},
+        });
+
+        this.objects.tokens.push(token);
+
+        this.checkAssets();
     }
 
     // adds a player to the lobby, doing whatever it needs to not interupt anything
@@ -168,10 +224,9 @@ class Player {
 // the base object class that physical objects (grids, tokens, and drawings) inherit from
 class Object {
     constructor(p) {
-        this.name = p.name;
-        this.position = p.position;
-        this.opacity = 1;
-        this.linkedImage = null;
+        this.name = p.name ?? "Unnamed Object";
+        this.position = p.position ?? {x: 0, y: 0};
+        this.opacity = p.opacity ?? 1;
     }
 }
 
@@ -196,13 +251,46 @@ class Token extends Object {
     constructor(p) {
         super(p);
 
-        this.radius = 20;
+        this.type = p.type ?? "token";
+        this.id = p.id ?? Math.floor(Math.random() * 2**31);
 
-        this.shape = "circle";
-        this.cropImage = true;
+        this.description = p.description ?? "";
 
-        this.linkedSheet = null;
-        this.linkedImage = null;
+        this.radius = p.radius ?? 20;
+
+        this.shape = p.shape ?? "circle";
+        this.cropImage = p.cropImage ?? true;
+        this.baseColor = p.baseColor ?? "red";
+        this.lineColor = p.lineColor ?? "white";
+        this.lineWidth = p.lineWidth ?? 5;
+        this.zIndex = p.zIndex ?? 0;
+
+        this.linkedSheet = p.linkedSheet ?? null;
+        this.linkedSheetAwait = p.linkedSheetAwait ?? {id: -1, name: ""};
+        this.linkedImage = p.linkedImage ?? null;
+        this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
+    }
+
+    toExport() {
+        return [
+            this.type,
+            this.id,
+            this.name,
+            this.description,
+            this.radius,
+            this.position.x,
+            this.position.y,
+            this.shape,
+            this.cropImage ? 1 : 0,
+            this.baseColor,
+            this.lineColor,
+            this.lineWidth,
+            this.zIndex,
+            this.linkedSheetAwait.id,
+            this.linkedSheetAwait.name,
+            this.linkedImageAwait.id,
+            this.linkedImageAwait.name,
+        ];
     }
 }
 
@@ -326,6 +414,19 @@ const sockets = {
                     this.playerInstance.mouseColor = d[5];
                     break;
                 }
+                // when a client creates a token, we sync it with all players
+                case protocol.server.tokenCreated: {
+                    if (!this.playerLobby) return;
+                    const d = ptools.decodePacket(reader, ['int8', 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string']);
+                    this.playerLobby.addToken(d);
+                    break;
+                }
+                // when a client sends a sanity check, make sure they have all their assets
+                case protocol.server.sceneSanityCheck: {
+                    if (!this.playerLobby) return;
+                    this.playerLobby.checkAssets();
+                    break;
+                }
                 default: {
                     console.warn(`An unknown code has been recieved: ${reader.getInt8(0)}`);
                     break;
@@ -386,6 +487,15 @@ function update() {
     for (let l of Lobby.lobbies) {
         // send each player a basic data update with things like player mouse positions
         l.sendBasicUpdate();
+
+        // check if any images have come in for our awaiting tokens
+        for (let token of l.objects.tokens) {
+            if (token.linkedImage !== null || token.linkedImageAwait.id === -1) continue;
+            for (let image of l.objects.images) {
+                if (image.id !== token.linkedImageAwait.id || image.name !== token.linkedImageAwait.name) continue;
+                token.linkedImage = image;
+            }
+        }
     }
 }
 setInterval(update, 1000/30);

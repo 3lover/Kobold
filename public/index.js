@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc, createPopup, savedAssets, findAsset, psd, preferences, populateRightClick, randomColor } from "./sheetScripts.js";
+import { doc, createPopup, findAsset, psd, preferences, populateRightClick, randomColor } from "./sheetScripts.js";
 
 let socket = null;
 let W, H, R;
@@ -50,6 +50,7 @@ class SavedImage {
 class Token {
     constructor(p) {
         this.type = p.type ?? "token";
+        this.id = p.id ?? Math.floor(Math.random() * 2**31);
 
         this.name = p.name ?? "Unnamed Token";
         this.description = p.description ?? "";
@@ -65,14 +66,50 @@ class Token {
         this.zIndex = p.zIndex ?? 0;
 
         this.linkedSheet = p.linkedSheet ?? null;
+        this.linkedSheetAwait = p.linkedSheetAwait ?? {id: -1, name: ""};
         this.linkedImage = p.linkedImage ?? null;
+        this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
 
-        //socket.talk(encodePacket([protocol.server.tokenCreated, ], ["int8"]))
+        this.synced = p.synced ?? false;
+        if (this.synced) return;
+
+        const tokenLayout = [
+            /* 00 */ protocol.server.tokenCreated, "int8",
+            /* 01 */ this.type, "string",
+            /* 02 */ this.id, "int32",
+            /* 03 */ this.name, "string",
+            /* 04 */ this.description, "string",
+            /* 05 */ this.radius, "float32",
+            /* 06 */ this.position.x, "float32",
+            /* 07 */ this.position.y, "float32",
+            /* 08 */ this.shape, "string",
+            /* 09 */ this.cropImage ? 1 : 0, "int8",
+            /* 10 */ this.baseColor, "string",
+            /* 11 */ this.lineColor, "string",
+            /* 12 */ this.lineWidth, "float32",
+            /* 13 */ this.zIndex, "int32",
+            /* 14 */ this.linkedSheet ? this.linkedSheet.id : -1, "int32",
+            /* 15 */ this.linkedSheet ? this.linkedSheet.name : "", "string",
+            /* 16 */ this.linkedImage ? this.linkedImage.id : -1, "int32",
+            /* 17 */ this.linkedImage ? this.linkedImage.name : "", "string",
+        ];
+        const tokenData = tokenLayout.filter((e, i) => {return i % 2 === 0});
+        const tokenTypes = tokenLayout.filter((e, i) => {return i % 2 === 1});
+        socket.talk(encodePacket(tokenData, tokenTypes));
+
+        // if the server doesn't have the asset, send it over
+        if (this.linkedImage) {
+            socket.talk(encodePacket(
+                [protocol.server.uploadRequiredAssets, 1, this.linkedImage.id, this.linkedImage.name, this.linkedImage.data, 0],
+                ["int8", "repeat", "int32", "string", "string", "end"]
+            ));
+        }
     }
 
     render() {
         ctx.beginPath();
         ctx.save();
+        if (!this.synced) ctx.globalAlpha = 0.4;
         ctx.translate(
             (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
             (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
@@ -92,13 +129,13 @@ class Token {
         if (this.linkedImage && this.linkedImage.drawableObject.complete) {
             buildctx.clearRect(0, 0, W, H);
             buildctx.beginPath();
-            buildctx.arc(this.radius, this.radius, this.radius, 0, Math.PI * 2);
+            buildctx.arc(this.radius * psd.cameraLocation.s, this.radius * psd.cameraLocation.s, this.radius * psd.cameraLocation.s, 0, Math.PI * 2);
             buildctx.fill();
             buildctx.globalCompositeOperation = "source-in";
             buildctx.drawImage(this.linkedImage.drawableObject, 0, 0, this.radius * 2 * psd.cameraLocation.s, this.radius * 2 * psd.cameraLocation.s);
             buildctx.globalCompositeOperation = "source-over";
 
-            ctx.drawImage(buildCanvas, -this.radius, -this.radius);
+            ctx.drawImage(buildCanvas, -this.radius * psd.cameraLocation.s, -this.radius * psd.cameraLocation.s);
         }
         ctx.restore();
     }
@@ -280,11 +317,6 @@ class Socket {
                 this.inLobby = true;
                 psd.myId = d[2];
                 console.log(`Successfully connected to lobby with code ${d[1]}.`);
-                //! Use this only when an asset is required, like a token is loaded in
-                /*socket.talk(encodePacket(
-                    [protocol.server.uploadRequiredAssets, 1, savedAssets[1].id, savedAssets[1].name, savedAssets[1].data, 0],
-                    ["int8", "repeat", "int32", "string", "string", "end"]
-                ));*/
                 break;
             }
             // the server is asking if we own the needed assets and if we don't own any, we request them
@@ -292,9 +324,13 @@ class Socket {
                 const d = decodePacket(reader, ["int8", "repeat", "int32", "string", "end"]);
                 let requestedAssets = [protocol.server.requestedAssets, 0];
                 for (let i = 0; i < d[1].length; i += 2) {
-                    if (findAsset(d[1][i + 0], d[1][i + 1]) === null) {
+                    const a = findAsset(d[1][i + 0], d[1][i + 1]);
+                    if (a === null) {
                         requestedAssets.push(d[1][i + 0], d[1][i + 1]);
                         requestedAssets[1]++;
+                    }
+                    else {
+                        if (a.type === "token") a.synced = true;
                     }
                 }
                 requestedAssets.push(0);
@@ -304,14 +340,38 @@ class Socket {
             }
             // when the server sends us our requested assets, save them to our asset storage
             case protocol.client.assetDataPacket: {
-                const d = decodePacket(reader, ["int8", "repeat", "int32", "string", "string", "end"]);
+                const d = decodePacket(reader, [
+                    "int8", 
+                    "repeat", "int32", "string", "string", "end", 
+                    "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "end"
+                ]);
                 console.log("Data packet recieved!");
                 for (let i = 0; i < d[1].length; i += 3) {
                     if (findAsset(d[1][i + 0], d[1][i + 1]) !== null) continue;
-                    savedAssets.push(new SavedImage({
+                    psd.images.push(new SavedImage({
                         id: d[1][i + 0],
                         name: d[1][i + 1],
                         data: d[1][i + 2],
+                    }));
+                }
+                for (let i = 0; i < d[2].length; i += 17) {
+                    if (findAsset(d[2][i + 1], d[1][i + 2]) !== null) continue;
+                    psd.tokens.push(new Token({
+                        type: d[2][i + 0],
+                        id: d[2][i + 1],
+                        name: d[2][i + 2],
+                        description: d[2][i + 3],
+                        radius: d[2][i + 4],
+                        position: {x: d[2][i + 5], y: d[2][i + 6]},
+                        shape: d[2][i + 7],
+                        cropImage: d[2][i + 8],
+                        baseColor: d[2][i + 9],
+                        lineColor: d[2][i + 10],
+                        lineWidth: d[2][i + 11],
+                        zIndex: d[2][i + 12],
+                        linkedSheetAwait: {id: d[2][i + 13], name: d[2][i + 14]},
+                        linkedImageAwait: {id: d[2][i + 15], name: d[2][i + 16]},
+                        synced: true,
                     }));
                 }
                 document.getElementById("loadingScreen").classList.add("hidden");
@@ -320,7 +380,6 @@ class Socket {
             // when we get a basic update, extract everything and update stuff
             case protocol.client.basicUpdate: {
                 const d = decodePacket(reader, ["int8", "repeat", "int32", "float32", "float32", "string", "end"]);
-                //console.log(d[1]);
                 for (let i = 0; i < d[1].length; i += 4) {
                     let other = null;
                     for (let player of psd.players) if (player.id === d[1][i + 0]) {other = player; break;}
@@ -335,6 +394,37 @@ class Socket {
                     other.realMouseLocation = {x: d[1][i + 1], y: d[1][i + 2]};
                     other.mouseColor = d[1][i + 3];
                 }
+                break;
+            }
+            // when we get a new token sync, we check if we already have it, and if not add it
+            case protocol.client.syncNewToken: {
+                const d = decodePacket(reader, ['int8', 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string']);
+
+                /*let tokenFound = false;
+                for (let token of psd.tokens) if (token.id === d[2] && token.name === d[3]) {
+                    tokenFound = true;
+                    token.synced = true;
+                }
+                if (tokenFound) break;
+
+                let token = new Token({
+                    type: d[1],
+                    id: d[2],
+                    name: d[3],
+                    description: d[4],
+                    radius: d[5],
+                    position: {x: d[6], y: d[7]},
+                    shape: d[8],
+                    cropImage: d[9],
+                    baseColor: d[10],
+                    lineColor: d[11],
+                    lineWidth: d[12],
+                    zIndex: d[13],
+                    linkedSheetAwait: {id: d[14], name: d[15]},
+                    linkedImageAwait: {id: d[16], name: d[17]},
+                    synced: true
+                });
+                psd.tokens.push(token);*/
                 break;
             }
             default: {
@@ -411,13 +501,15 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
     populateRightClick([{
         name: "Create Token (testing)",
         function: function() {
-            psd.tokens.push(new Token({
-                name: "Random Token",
-                description: "Something cool goes here I think",
-                position: {x: Math.random() * 500 - 250, y: Math.random() * 500 - 250},
-                baseColor: randomColor(),
-            }));
-            /*createPopup(
+            if (!e.ctrlKey) {
+                psd.tokens.push(new Token({
+                    name: "Random Token",
+                    description: "Something cool goes here I think",
+                    position: {x: Math.random() * 500 - 250, y: Math.random() * 500 - 250},
+                    baseColor: randomColor(),
+                }));
+            }
+            else createPopup(
                 "Upload Image", "Upload an image for the token.",
                 {type: 2},
                 "Cancel", function(e) {return true},
@@ -427,12 +519,12 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                         const img = new SavedImage({
                             data: reader.result
                         });
-                        savedAssets.push(img);
+                        psd.images.push(img);
                         
                         psd.tokens.push(new Token({
                             name: "Random Token",
                             description: "Something cool goes here I think",
-                            position: {x: Math.random() * 100 - 50, y: Math.random() * 100 - 50},
+                            position: {x: Math.random() * 500 - 250, y: Math.random() * 500 - 250},
                             baseColor: randomColor(),
                             linkedImage: img,
                         }));
@@ -440,7 +532,7 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                     reader.readAsDataURL(doc.popupMenuFileDrop.files[0]);
                     return true;
                 }
-            );*/
+            );
         }
     }]);
 });
@@ -508,9 +600,30 @@ saveInput(document.getElementById("frontCreateGameCodeInput"));
 saveInput(document.getElementById("frontJoinGameNameInput"));
 saveInput(document.getElementById("frontJoinGameCodeInput"));
 
+// our key controls
+document.addEventListener("keydown", function(e) {
+    switch (e.key) {
+        case "r": {
+            if (socket.inLobby) socket.talk([protocol.server.sceneSanityCheck], ["int8"]);
+            break;
+        }
+    }
+});
+
 
 // an update loop to keep the game running
 function update() {
+    // check if we have assets for our images that are missing them
+    for (let token of psd.tokens) {
+        if (token.linkedImage !== null || token.linkedImageAwait.id === -1) continue;
+        for (let image of psd.images) {
+            if (image.type !== "image") continue;
+            if (image.id !== token.linkedImageAwait.id || image.name !== token.linkedImageAwait.name) continue;
+            token.linkedImage = image;
+        }
+    }
+
+    // begin rendering
     ctx.clearRect(0, 0, W, H);
 
     // draw every grid by their z-index
@@ -542,14 +655,6 @@ function update() {
     requestAnimationFrame(update);
 }
 requestAnimationFrame(update);
-
-
-psd.tokens.push(new Token({
-    name: "Random Token",
-    description: "Something cool goes here I think",
-    position: {x: Math.random() * 500 - 250, y: Math.random() * 500 - 250},
-    baseColor: randomColor(),
-}));
 
 psd.grids.push(new Grid({
     name: "Random Background",

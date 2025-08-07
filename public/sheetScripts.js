@@ -27,16 +27,12 @@ export const doc = {
 
 // basic data storage for characters, and the currently viewed character
 async function loadDefaultCharacterSheet() {
-    savedAssets.push(await (await fetch("./json/defaultCharacterSheet.json")).json());
-    currentSelectedCharacter = savedAssets[0];
+    psd.sheets.push(await (await fetch("./json/defaultCharacterSheet.json")).json());
+    currentSelectedCharacter = psd.sheets[0];
     fillCharacterFields(currentSelectedCharacter);
 }
 export let currentSelectedCharacter = null;
-export let savedAssets = [];
 export let classData = {};
-if (localStorage.getItem("savedAssets")) savedAssets = JSON.parse(localStorage.getItem("savedAssets"));
-else await loadDefaultCharacterSheet();
-
 export let psd = {
     mousePosition: {x: 0, y: 0},
     cameraLocation: {x: 0, y: 0, s: 1},
@@ -44,8 +40,13 @@ export let psd = {
     players: [],
     tokens: [],
     grids: [],
+    images: [],
+    sheets: [],
     myId: -1,
 };
+
+if (localStorage.getItem("psd")) psd = JSON.parse(localStorage.getItem("psd"));
+else await loadDefaultCharacterSheet();
 
 export function randomColor(noWhites = false) {
     const validColors = [
@@ -78,7 +79,11 @@ function error(id) {
 
 // finds a specific asset from our saved assets via id and name
 export function findAsset(id, name) {
-    for (let asset of savedAssets) if (asset.id === id && asset.name === name) return asset;
+    for (let asset of psd.images) if (asset.id === id && asset.name === name) return asset;
+    for (let asset of psd.tokens) if (asset.id === id && asset.name === name) return asset;
+    for (let asset of psd.sheets) if (asset.id === id && asset.name === name) return asset;
+    for (let asset of psd.grids) if (asset.id === id && asset.name === name) return asset;
+
     return null;
 }
 

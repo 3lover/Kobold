@@ -923,10 +923,10 @@ span {
 }
 
 .popupBackground {
-    width: 100vw;
-    height: 100vh;
-    top: -25vh;
-    left: -25vw;
+    width: 110vw;
+    height: 110vh;
+    top: -30vh;
+    left: -30vw;
     opacity: 0.6;
     background-color: var(--black);
 }

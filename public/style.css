@@ -1297,3 +1297,82 @@ span {
     background-color: var(--black);
     z-index: 0;
 }
+
+/* The token data menu, for adjusting the settings of a token object */
+.objectDataMenu {
+    position: absolute;
+    left: calc(50vw - 60vh);
+    top: 10vh;
+    width: 120vh;
+    height: 80vh;
+    background-color: transparent;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.objectShowcaseView {
+    position: absolute;
+    pointer-events: auto;
+    left: 0;
+    top: 0;
+    width: 30vh;
+    height: 30vh;
+    background-color: var(--black);
+    border: solid var(--white) 1vmin;
+}
+
+.objectMenuDataProperties {
+    position: absolute;
+    pointer-events: auto;
+    overflow-y: scroll;
+    left: 35vh;
+    top: 0;
+    width: 40vh;
+    height: 80vh;
+    background-color: var(--veryDarkGrey);
+}
+
+.objectMenuGraphicProperties {
+    position: absolute;
+    pointer-events: auto;
+    overflow-y: scroll;
+    left: 80vh;
+    top: 0;
+    width: 40vh;
+    height: 80vh;
+    background-color: var(--veryDarkGrey);
+}
+
+.objectMenuInput {
+    position: relative;
+    display: block;
+    width: 36vh;
+    left: 2vh;
+    height: 5vh;
+    background-color: var(--darkGrey);
+    text-align: center;
+    margin-bottom: 2vmin;
+}
+.objectMenuInput:hover {
+    background-color: var(--grey);
+}
+.objectMenuInput:focus {
+    background-color: var(--grey);
+}
+
+.objectMenuLabel {
+    position: relative;
+    display: block;
+    font-size: 3vh;
+    width: 36vh;
+    left: 2vh;
+    height: 4vh;
+    color: var(--veryLightGrey);
+    text-align: center;
+    margin-top: 2vh;
+}
+
+.objectMenuTextArea {
+    resize: vertical;
+    text-align: left;
+}

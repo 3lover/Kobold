@@ -9,8 +9,9 @@
         "assetInquiryPacket": 6,
         "assetDataPacket": 7,
         "basicUpdate": 8,
-        "syncNewToken": 9,
-        "missingAssets": 10
+        "tokenGrabbed": 9,
+        "missingAssets": 10,
+        "tokenReleased": 11
     },
     "server": {
         "confirmConnection": 0,
@@ -20,6 +21,9 @@
         "uploadRequiredAssets": 4,
         "mouseMoveData": 5,
         "tokenCreated": 6,
-        "sceneSanityCheck": 7
+        "sceneSanityCheck": 7,
+        "tokenGrabbed": 8,
+        "tokenReleased": 9,
+        "tokenMoved": 10
     }
 }

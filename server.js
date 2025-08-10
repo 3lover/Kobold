@@ -98,7 +98,7 @@ class Lobby {
         player.talk(ptools.encodePacket(requestedAssets, [
             "int8", 
             "repeat", "int32", "string", "string", "end", 
-            "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "end"
+            "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32", "end"
         ]));
 
     }
@@ -125,6 +125,7 @@ class Lobby {
             linkedSheetAwait: {id: d[14], name: d[15]},
             linkedImageAwait: {id: d[16], name: d[17]},
         });
+        console.log(`Added a token with id ${token.id}!`)
 
         this.objects.tokens.push(token);
 
@@ -184,13 +185,25 @@ class Lobby {
                 player.id,
                 player.mouseLocation.x + player.cameraLocation.x,
                 player.mouseLocation.y + player.cameraLocation.y,
-                player.mouseColor
+                player.mouseColor,
+                player.inMenu ? 1 : 0
             );
         }
         sending.push(0);
 
+        // send the newest locations of all tokens
+        sending.push(this.objects.tokens.length);
+        for (let token of this.objects.tokens) {
+            sending.push(token.id, token.name, token.position.x, token.position.y);
+        }
+        sending.push(0);
+
         for (let player of this.players) {
-            player.talk(ptools.encodePacket(sending, ["int8", "repeat", "int32", "float32", "float32", "string", "end"]));
+            player.talk(ptools.encodePacket(sending, [
+                "int8",
+                "repeat", "int32", "float32", "float32", "string", "int8", "end",
+                "repeat", "int32", "string", "float32", "float32", "end"
+            ]));
         }
     }
 
@@ -213,6 +226,7 @@ class Player {
         this.mouseLocation = {x: 0, y: 0};
         this.mouseColor = "red";
         this.cameraLocation = {x: 0, y: 0};
+        this.inMenu = false;
     }
 
     // sends a message through a player's socket
@@ -269,6 +283,8 @@ class Token extends Object {
         this.linkedSheetAwait = p.linkedSheetAwait ?? {id: -1, name: ""};
         this.linkedImage = p.linkedImage ?? null;
         this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
+
+        this.grabbingPlayer = null;
     }
 
     toExport() {
@@ -290,6 +306,7 @@ class Token extends Object {
             this.linkedSheetAwait.name,
             this.linkedImageAwait.id,
             this.linkedImageAwait.name,
+            this.grabbingPlayer ? this.grabbingPlayer.id : -1
         ];
     }
 }
@@ -408,10 +425,11 @@ const sockets = {
                 // when a player moves their mouse, we update their last known mouse position
                 case protocol.server.mouseMoveData: {
                     if (!this.playerLobby) return;
-                    const d = ptools.decodePacket(reader, ["int8", "float32", "float32", "float32", "float32", "string"]);
+                    const d = ptools.decodePacket(reader, ["int8", "float32", "float32", "float32", "float32", "int8", "string"]);
                     this.playerInstance.cameraLocation = {x: d[1], y: d[2]};
                     this.playerInstance.mouseLocation = {x: d[3], y: d[4]};
-                    this.playerInstance.mouseColor = d[5];
+                    this.playerInstance.inMenu = !!d[5];
+                    this.playerInstance.mouseColor = d[6];
                     break;
                 }
                 // when a client creates a token, we sync it with all players
@@ -425,6 +443,40 @@ const sockets = {
                 case protocol.server.sceneSanityCheck: {
                     if (!this.playerLobby) return;
                     this.playerLobby.checkAssets();
+                    break;
+                }
+                // when a player grabs a token, alert all others of this, and kick the existing holder
+                case protocol.server.tokenGrabbed: {
+                    if (!this.playerLobby) return;
+                    const d = ptools.decodePacket(reader, ["int8", "int32", "string"]);
+                    const token = this.playerLobby.findAssetById(d[1], d[2]);
+                    if (token === null) return;
+                    token.grabbingPlayer = this.playerInstance;
+                    for (let player of this.playerLobby.players) {
+                        player.talk(ptools.encodePacket([protocol.client.tokenGrabbed, token.id, token.name, token.grabbingPlayer.id], ["int8", "int32", "string", "int32"]));
+                    }
+                    break;
+                }
+                // when a player releases a token they are holding, alert everyone of this too
+                case protocol.server.tokenReleased: {
+                    if (!this.playerLobby) return;
+                    const d = ptools.decodePacket(reader, ["int8", "int32", "string", "float32", "float32"]);
+                    const token = this.playerLobby.findAssetById(d[1], d[2]);
+                    if (token === null || token.grabbingPlayer !== this.playerInstance) return;
+                    token.grabbingPlayer = null;
+                    token.position = {x: d[3], y: d[4]};
+                    for (let player of this.playerLobby.players) {
+                        player.talk(ptools.encodePacket([protocol.client.tokenReleased, token.id, token.name], ["int8", "int32", "string"]));
+                    }
+                    break;
+                }
+                // finally, as the player moves the token, update its position in real time
+                case protocol.server.tokenMoved: {
+                    if (!this.playerLobby) return;
+                    const d = ptools.decodePacket(reader, ["int8", "int32", "string", "float32", "float32"]);
+                    const token = this.playerLobby.findAssetById(d[1], d[2]);
+                    if (token === null || token.grabbingPlayer !== this.playerInstance) return;
+                    token.position = {x: d[3], y: d[4]};
                     break;
                 }
                 default: {

@@ -57,6 +57,8 @@ class Token {
 
         this.radius = p.radius ?? 20;
         this.position = p.position ?? {x: 0, y: 0};
+        this.originalPosition = this.position;
+        this.snapInterval = p.snapInterval ?? 1;
 
         this.shape = p.shape ?? "circle";
         this.cropImage = p.cropImage ?? true;
@@ -70,6 +72,8 @@ class Token {
         this.linkedImage = p.linkedImage ?? null;
         this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
 
+        this.grabbingPlayer = p.grabbingPlayer ?? null;
+        this.preventDefaultPosition = false;
         this.synced = p.synced ?? false;
         if (this.synced) return;
 
@@ -107,21 +111,33 @@ class Token {
     }
 
     render() {
-        ctx.beginPath();
         ctx.save();
         if (!this.synced) ctx.globalAlpha = 0.4;
+        //if (this.preventDefaultPosition) ctx.globalAlpha = 0.7;
         ctx.translate(
             (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
             (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
         );
-        ctx.arc(
-            0,
-            0,
-            this.radius * psd.cameraLocation.s, 0, Math.PI * 2
-        );
+        
+        ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
+
+        // draw the color of the grabber in the background if needed
+        if (this.grabbingPlayer !== null) {
+            let grabber = "red";
+            for (let player of psd.players) if (player.id === this.grabbingPlayer) grabber = player.mouseColor;
+            ctx.beginPath();
+            ctx.fillStyle = fetchColor(grabber);
+            ctx.strokeStyle = fetchColor(grabber);
+            ctx.arc(0, 0, this.radius * psd.cameraLocation.s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // draw the base token
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius * psd.cameraLocation.s * (this.grabbingPlayer === null ? 1 : 0.7), 0, Math.PI * 2);
         ctx.fillStyle = fetchColor(this.baseColor);
         ctx.strokeStyle = fetchColor(this.lineColor);
-        ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
         ctx.fill();
         ctx.stroke();
 
@@ -138,6 +154,60 @@ class Token {
             ctx.drawImage(buildCanvas, -this.radius * psd.cameraLocation.s, -this.radius * psd.cameraLocation.s);
         }
         ctx.restore();
+    }
+
+    // takes in a location, and returns true if the token hitbox is within that location
+    checkDrag(loc) {
+        switch (this.shape) {
+            case "circle": {
+                return ((this.position.x - loc.x) ** 2 + (this.position.y - loc.y) ** 2) <= this.radius ** 2;
+            }
+        }
+    }
+
+    // when a user clicks a token, go through this to tell if it is being dragged or selected
+    clicked(e) {
+        const token = this;
+        token.originalPosition = {x: token.position.x, y: token.position.y};
+        token.preventDefaultPosition = true;
+
+        // as we drag, move the token accordingly
+        function moveToken(e2) {
+            if (!token.preventDefaultPosition) {
+                mouseUp(e2);
+                return;
+            }
+            token.position.x = token.originalPosition.x - (e.clientX - e2.clientX) / psd.cameraLocation.s;
+            token.position.y = token.originalPosition.y - (e.clientY - e2.clientY) / psd.cameraLocation.s;
+            // snap it to the interval
+            token.position.x = Math.round(token.position.x / token.snapInterval) * token.snapInterval;
+            token.position.y = Math.round(token.position.y / token.snapInterval) * token.snapInterval;
+
+            socket.talk(encodePacket([protocol.server.tokenMoved, token.id, token.name, token.position.x, token.position.y], ["int8", "int32", "string", "float32", "float32"]));
+        }
+        // when we unclick, see how far we moved the token, and if we didn't move snap it and run a click event
+        function mouseUp(e2) {
+            document.removeEventListener("mousemove", moveToken);
+            document.removeEventListener("mouseup", mouseUp);
+            socket.talk(encodePacket([protocol.server.tokenReleased, token.id, token.name, token.position.x, token.position.y], ["int8", "int32", "string", "float32", "float32"]));
+
+            if ((e2.clientX - e.clientX) ** 2 + (e2.clientY - e.clientY) ** 2 > 4) {
+                return;
+            }
+            token.position = token.originalPosition;
+            token.baseColor = randomColor(true);
+            Token.openEditMenu(token, e2);
+        }
+        document.addEventListener("mousemove", moveToken);
+        document.addEventListener("mouseup", mouseUp);
+
+        socket.talk(encodePacket([protocol.server.tokenGrabbed, token.id, token.name], ["int8", "int32", "string"]));
+    }
+
+    static openEditMenu(e, token = null) {
+        doc.tokenDataMenu.classList.remove("hidden");
+        psd.inMenu = true;
+        sendMouseUpdate(e);
     }
 }
 
@@ -158,8 +228,6 @@ class Grid {
         this.zIndex = p.zIndex ?? -1;
 
         this.linkedImage = p.linkedImage ?? null;
-
-        //socket.talk(encodePacket([protocol.server.tokenCreated, ], ["int8"]))
     }
 
     render() {
@@ -205,6 +273,7 @@ class PlayerState {
         this.mouseLocation = p.mouseLocation ?? {x: 0, y: 0};
         this.realMouseLocation = p.mouseLocation ?? {x: 0, y: 0};
         this.mouseColor = p.mouseColor ?? "red";
+        this.inMenu = p.inMenu ?? false;
     }
 
     lerpPosition() {
@@ -219,8 +288,15 @@ class PlayerState {
             (this.mouseLocation.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2,
             5 * psd.cameraLocation.s, 0, Math.PI * 2
         );
-        ctx.fillStyle = fetchColor(this.mouseColor);
-        ctx.fill();
+        if (this.inMenu) {
+            ctx.strokeStyle = fetchColor(this.mouseColor);
+            ctx.lineWidth = 5 * psd.cameraLocation.s;
+            ctx.stroke();
+        }
+        else {
+            ctx.fillStyle = fetchColor(this.mouseColor);
+            ctx.fill();
+        }
     }
 }
 
@@ -343,7 +419,7 @@ class Socket {
                 const d = decodePacket(reader, [
                     "int8", 
                     "repeat", "int32", "string", "string", "end", 
-                    "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "end"
+                    "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32", "end"
                 ]);
                 console.log("Data packet recieved!");
                 for (let i = 0; i < d[1].length; i += 3) {
@@ -354,7 +430,7 @@ class Socket {
                         data: d[1][i + 2],
                     }));
                 }
-                for (let i = 0; i < d[2].length; i += 17) {
+                for (let i = 0; i < d[2].length; i += 18) {
                     if (findAsset(d[2][i + 1], d[1][i + 2]) !== null) continue;
                     psd.tokens.push(new Token({
                         type: d[2][i + 0],
@@ -371,6 +447,7 @@ class Socket {
                         zIndex: d[2][i + 12],
                         linkedSheetAwait: {id: d[2][i + 13], name: d[2][i + 14]},
                         linkedImageAwait: {id: d[2][i + 15], name: d[2][i + 16]},
+                        grabbingPlayer: d[2][i + 17] === -1 ? null : d[2][i + 17],
                         synced: true,
                     }));
                 }
@@ -379,52 +456,72 @@ class Socket {
             }
             // when we get a basic update, extract everything and update stuff
             case protocol.client.basicUpdate: {
-                const d = decodePacket(reader, ["int8", "repeat", "int32", "float32", "float32", "string", "end"]);
-                for (let i = 0; i < d[1].length; i += 4) {
+                const d = decodePacket(reader, [
+                    "int8",
+                    "repeat", "int32", "float32", "float32", "string", "int8", "end",
+                    "repeat", "int32", "string", "float32", "float32", "end"
+                ]);
+                // update player mouse positions
+                for (let i = 0; i < d[1].length; i += 5) {
                     let other = null;
                     for (let player of psd.players) if (player.id === d[1][i + 0]) {other = player; break;}
                     if (other === null) {
                         other = new PlayerState({
                             id: d[1][i + 0],
                             mouseLocation: {x: d[1][i + 1], y: d[1][i + 2]},
-                            mouseColor: d[1][i + 3]
+                            mouseColor: d[1][i + 3],
+                            inMenu: d[1][i + 4],
                         });
                         psd.players.push(other);
                     }
                     other.realMouseLocation = {x: d[1][i + 1], y: d[1][i + 2]};
                     other.mouseColor = d[1][i + 3];
+                    other.inMenu = !!d[1][i + 4];
                 }
+                // update token locations
+                for (let token of psd.tokens) {
+                    let found = false;
+                    for (let i = 0; i < d[2].length; i += 4) {
+                        if (token.id === d[2][i + 0] && token.name === d[2][i + 1]) {
+                            found = true;
+                            if (!token.preventDefaultPosition) {
+                                token.position.x = d[2][i + 2];
+                                token.position.y = d[2][i + 3];
+                            }
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        token.loaded = false;
+                        console.warn("token not found for positioning!");
+                    }
+                }
+
                 break;
             }
-            // when we get a new token sync, we check if we already have it, and if not add it
-            case protocol.client.syncNewToken: {
-                const d = decodePacket(reader, ['int8', 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string']);
-
-                /*let tokenFound = false;
-                for (let token of psd.tokens) if (token.id === d[2] && token.name === d[3]) {
-                    tokenFound = true;
-                    token.synced = true;
+            // when a token is grabbed, check if it is us, and if not release our grip if we have one
+            case protocol.client.tokenGrabbed: {
+                const d = decodePacket(reader, ["int8", "int32", "string", "int32"]);
+                let t = null;
+                for (let token of psd.tokens) if (token.id === d[1] && token.name === d[2]) {t = token; break;}
+                if (t === null) {
+                    console.warn("Unrecognized Token Grabbed");
+                    break;
                 }
-                if (tokenFound) break;
 
-                let token = new Token({
-                    type: d[1],
-                    id: d[2],
-                    name: d[3],
-                    description: d[4],
-                    radius: d[5],
-                    position: {x: d[6], y: d[7]},
-                    shape: d[8],
-                    cropImage: d[9],
-                    baseColor: d[10],
-                    lineColor: d[11],
-                    lineWidth: d[12],
-                    zIndex: d[13],
-                    linkedSheetAwait: {id: d[14], name: d[15]},
-                    linkedImageAwait: {id: d[16], name: d[17]},
-                    synced: true
-                });
-                psd.tokens.push(token);*/
+                if (d[3] !== psd.myId) t.preventDefaultPosition = false;
+                t.grabbingPlayer = d[3];
+                break;
+            }
+            // if a token is released, do all that entails
+            case protocol.client.tokenReleased: {
+                const d = decodePacket(reader, ["int8", "int32", "string"]);
+                let t = null;
+                for (let token of psd.tokens) if (token.id === d[1] && token.name === d[2]) {t = token; break;}
+                if (t === null) {console.warn("Unrecognized Token Released"); break;}
+
+                t.preventDefaultPosition = false;
+                t.grabbingPlayer = null;
                 break;
             }
             default: {
@@ -455,6 +552,30 @@ document.getElementById("loadingScreen").classList.add("hidden");
 
 // when dragging across the canvas, change the camera position
 doc.gameCanvas.addEventListener("mousedown", function(e) {
+    if (psd.inMenu) {
+        psd.inMenu = false;
+        doc.tokenDataMenu.classList.add("hidden");
+        sendMouseUpdate(e);
+        return;
+    }
+
+    // go through all our tokens and see if we are trying to grab one
+    let grabbedToken = null;
+    for (let token of psd.tokens) {
+        if (grabbedToken !== null && token.zIndex < grabbedToken.zIndex) continue;
+        if (!token.checkDrag({
+            x: (e.clientX - W/2) / psd.cameraLocation.s + psd.cameraLocation.x,
+            y: (e.clientY - H/2) / psd.cameraLocation.s + psd.cameraLocation.y,
+        })) continue;
+        grabbedToken = token;
+    }
+    if (grabbedToken) {
+        grabbedToken.clicked(e);
+        return;
+    }
+
+
+    // if we failed to find a drag, or if we are panning, latch to our camera and move it
     psd.originalCameraLocation = structuredClone(psd.cameraLocation);
     function drag(e2) {
         psd.cameraLocation.x = psd.originalCameraLocation.x + (e.clientX - e2.clientX) / psd.cameraLocation.s;
@@ -483,18 +604,20 @@ doc.gameCanvas.addEventListener("wheel", function(e) {
 });
 
 // when the mouse moves, update the server with this info
-doc.gameCanvas.addEventListener("mousemove", function(e) {
+function sendMouseUpdate(e) {
     if (!socket.inLobby) return;
-    psd.mousePosition = {x: e.clientX, y: e.clientY};
+    if (!psd.inMenu) psd.mousePosition = {x: e.clientX, y: e.clientY};
     socket.talk(encodePacket([
         protocol.server.mouseMoveData,
         psd.cameraLocation.x,
         psd.cameraLocation.y,
         (psd.mousePosition.x - W/2) / psd.cameraLocation.s,
         (psd.mousePosition.y - H/2) / psd.cameraLocation.s,
+        psd.inMenu ? 1 : 0,
         preferences.mouseColor,
-    ], ["int8", "float32", "float32", "float32", "float32", "string"]));
-});
+    ], ["int8", "float32", "float32", "float32", "float32", "int8", "string"]));
+}
+doc.gameCanvas.addEventListener("mousemove", sendMouseUpdate);
 
 /* Sense where a player right clicks, and add menu options accordingly */
 doc.gameCanvas.addEventListener("contextmenu", function(e) {
@@ -604,7 +727,8 @@ saveInput(document.getElementById("frontJoinGameCodeInput"));
 document.addEventListener("keydown", function(e) {
     switch (e.key) {
         case "r": {
-            if (socket.inLobby) socket.talk([protocol.server.sceneSanityCheck], ["int8"]);
+            if (e.ctrlKey) return;
+            if (socket.inLobby && !psd.inMenu) socket.talk(encodePacket([protocol.server.sceneSanityCheck], ["int8"]));
             break;
         }
     }
@@ -635,6 +759,7 @@ function update() {
     }
     ctx.beginPath();
     ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 1;
     ctx.arc(W/2, H/2, 5, 0, Math.PI * 2);
     ctx.stroke();
 

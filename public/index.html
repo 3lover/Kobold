@@ -320,6 +320,20 @@
         <!-- The canvas for rendering the game -->
         <canvas id="gameCanvas"></canvas>
         <canvas id="buildCanvas"></canvas>
+        <div id="tokenDataMenu" class="objectDataMenu hidden">
+            <canvas class="objectShowcaseView"></canvas>
+            <div class="objectMenuDataProperties">
+                <label class="objectMenuLabel" for="tokenNameInput">Token Name</label>
+                <input class="objectMenuInput" id="tokenNameInput" placeholder="Unnamed Token">
+                <label class="objectMenuLabel" for="tokenDescriptionInput">Token Description</label>
+                <textarea class="objectMenuInput objectMenuTextArea" id="tokenDescriptionInput" placeholder="No Description"></textarea>
+            </div>
+            
+            <div class="objectMenuGraphicProperties">
+                <label class="objectMenuLabel" for="tokenColorInput">Token Color</label>
+                <input class="objectMenuInput" id="tokenColorInput" placeholder="Unnamed Token">
+            </div>
+        </div>
     </div>
 
     <!-- Has buttons and widgets for editing character sheets, creating/joining lobbies, and other stuff like settings -->

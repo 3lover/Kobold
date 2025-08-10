@@ -23,6 +23,7 @@ export const doc = {
     diceRollPopupHolder: document.getElementById("diceRollPopupHolder"),
     gameCanvas: document.getElementById("gameCanvas"),
     buildCanvas: document.getElementById("buildCanvas"),
+    tokenDataMenu: document.getElementById("tokenDataMenu"),
 }
 
 // basic data storage for characters, and the currently viewed character
@@ -43,6 +44,7 @@ export let psd = {
     images: [],
     sheets: [],
     myId: -1,
+    inMenu: false
 };
 
 if (localStorage.getItem("psd")) psd = JSON.parse(localStorage.getItem("psd"));

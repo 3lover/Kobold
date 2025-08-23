@@ -322,16 +322,91 @@
         <canvas id="buildCanvas"></canvas>
         <div id="tokenDataMenu" class="objectDataMenu hidden">
             <canvas class="objectShowcaseView"></canvas>
+            <button class="objectMenuDelete" id="deleteTokenButton">Delete Token</button>
             <div class="objectMenuDataProperties">
                 <label class="objectMenuLabel" for="tokenNameInput">Token Name</label>
                 <input class="objectMenuInput" id="tokenNameInput" placeholder="Unnamed Token">
+
                 <label class="objectMenuLabel" for="tokenDescriptionInput">Token Description</label>
                 <textarea class="objectMenuInput objectMenuTextArea" id="tokenDescriptionInput" placeholder="No Description"></textarea>
+
+                <label class="objectMenuLabel" for="tokenReferenceSheetInput">Connected Sheet</label>
+                <button class="objectMenuButton" id="tokenReferenceSheetInput">Click to Select</button>
             </div>
             
             <div class="objectMenuGraphicProperties">
-                <label class="objectMenuLabel" for="tokenColorInput">Token Color</label>
-                <input class="objectMenuInput" id="tokenColorInput" placeholder="Unnamed Token">
+                <label class="objectMenuLabel" for="tokenImageInput">Token Image</label>
+                <label id="tokenImageFileDropLabel" for="tokenImageFileDrop" class="objectMenuButton fileDropAutofill">Click to Upload a File</label>
+                <input id="tokenImageFileDrop" type="file" class="hiddenFileDrop">
+                <button class="objectMenuInput" id="tokenRemoveReferenceImageButton">Click to Remove Image</button>
+
+                <label class="objectMenuLabel" for="tokenRadiusInput">Token Radius (px)</label>
+                <input class="objectMenuInput" id="tokenRadiusInput" placeholder="20">
+
+                <label class="objectMenuLabel" for="tokenBorderRadiusInput">Border Radius (px)</label>
+                <input class="objectMenuInput" id="tokenBorderRadiusInput" placeholder="5">
+
+                <label class="objectMenuLabel" for="tokenZIndexInput">Z-Index</label>
+                <input class="objectMenuInput" id="tokenZIndexInput" placeholder="0">
+
+                <label class="objectMenuLabel" for="tokenGridSnapInput">Grid Snap Interval (px)</label>
+                <input class="objectMenuInput" id="tokenGridSnapInput" placeholder="1">
+
+                <label class="objectMenuLabel" for="tokenColorInput">Token Base Color</label>
+                <select class="objectMenuInput colorInputAutofill" id="tokenColorInput"></select>
+
+                <label class="objectMenuLabel" for="tokenBorderColorInput">Token Border Color</label>
+                <select class="objectMenuInput colorInputAutofill" id="tokenBorderColorInput"></select>
+
+                <label class="objectMenuLabel" for="tokenShapeInput">Token Shape</label>
+                <select class="objectMenuInput" id="tokenShapeInput">
+                    <option value="circle">Circle</option>
+                    <option value="square">Square</option>
+                </select>
+                </select>
+            </div>
+        </div>
+
+        <div id="gridDataMenu" class="objectDataMenu hidden">
+            <canvas class="objectShowcaseView"></canvas>
+            <button class="objectMenuDelete" id="deleteGridButton">Delete Grid</button>
+            <div class="objectMenuDataProperties">
+                <label class="objectMenuLabel" for="gridNameInput">Grid Name</label>
+                <input class="objectMenuInput" id="gridNameInput" placeholder="Unnamed Grid">
+
+                <label class="objectMenuLabel" for="gridImageInput">Grid Image</label>
+                <label id="gridImageFileDropLabel" for="gridImageFileDrop" class="objectMenuButton fileDropAutofill">Click to Upload a File</label>
+                <input id="gridImageFileDrop" type="file" class="hiddenFileDrop">
+                <button class="objectMenuInput" id="gridRemoveReferenceImageButton">Click to Remove Image</button>
+            </div>
+            
+            <div class="objectMenuGraphicProperties">
+                <label class="objectMenuLabel" for="gridRadiusInput">Cell Radius (px)</label>
+                <input class="objectMenuInput" id="gridRadiusInput" placeholder="50">
+
+                <label class="objectMenuLabel" for="gridXDimInput">X and Y Dimensions</label>
+                <input class="objectMenuInput" id="gridXDimInput" placeholder="10">
+                <input class="objectMenuInput" id="gridYDimInput" placeholder="10">
+
+                <label class="objectMenuLabel" for="gridXPosInput">X and Y Position</label>
+                <input class="objectMenuInput" id="gridXPosInput" placeholder="0">
+                <input class="objectMenuInput" id="gridYPosInput" placeholder="0">
+
+                <label class="objectMenuLabel" for="gridLineWidthInput">Line Width (px)</label>
+                <input class="objectMenuInput" id="gridLineWidthInput" placeholder="2">
+
+                <label class="objectMenuLabel" for="gridLineColorInput">Line Color</label>
+                <select class="objectMenuInput colorInputAutofill" id="gridLineColorInput"></select>
+
+                <label class="objectMenuLabel" for="gridZIndexInput">Z-Index</label>
+                <input class="objectMenuInput" id="gridZIndexInput" placeholder="0">
+
+                <label class="objectMenuLabel" for="gridShapeInput">Grid Shape</label>
+                <select class="objectMenuInput" id="gridShapeInput">
+                    <option value="hexagon">Hexagon</option>
+                    <option value="square">Square</option>
+                </select>
+                </select>
             </div>
         </div>
     </div>

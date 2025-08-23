@@ -1,5 +1,6 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
 import { doc, createPopup, findAsset, psd, preferences, populateRightClick, randomColor } from "./sheetScripts.js";
+import { sanitize } from "./helpers.js";
 
 let socket = null;
 let W, H, R;
@@ -75,8 +76,20 @@ class Token {
         this.grabbingPlayer = p.grabbingPlayer ?? null;
         this.preventDefaultPosition = false;
         this.synced = p.synced ?? false;
+        this.loaded = p.loaded ?? false;
         if (this.synced) return;
 
+        this.sendToken();
+    }
+
+    // unloads a token and tells the server to drop it
+    delete() {
+        this.loaded = false;
+        socket.talk(encodePacket([protocol.server.deleteObject, this.id, this.name], ["int8", "int32", "string"]));
+    }
+
+    // directly sends the token object to the server
+    sendToken(oldid) {
         const tokenLayout = [
             /* 00 */ protocol.server.tokenCreated, "int8",
             /* 01 */ this.type, "string",
@@ -96,17 +109,15 @@ class Token {
             /* 15 */ this.linkedSheet ? this.linkedSheet.name : "", "string",
             /* 16 */ this.linkedImage ? this.linkedImage.id : -1, "int32",
             /* 17 */ this.linkedImage ? this.linkedImage.name : "", "string",
+            /* 18 */ oldid ?? this.id, "int32"
         ];
         const tokenData = tokenLayout.filter((e, i) => {return i % 2 === 0});
         const tokenTypes = tokenLayout.filter((e, i) => {return i % 2 === 1});
         socket.talk(encodePacket(tokenData, tokenTypes));
 
-        // if the server doesn't have the asset, send it over
+        // if the server doesn't have the image asset, send it over
         if (this.linkedImage) {
-            socket.talk(encodePacket(
-                [protocol.server.uploadRequiredAssets, 1, this.linkedImage.id, this.linkedImage.name, this.linkedImage.data, 0],
-                ["int8", "repeat", "int32", "string", "string", "end"]
-            ));
+            socket.talk(encodePacket([protocol.server.assetInquiry, this.linkedImage.id, this.linkedImage.name], ["int8", "int32", "string"]));
         }
     }
 
@@ -130,7 +141,7 @@ class Token {
             ctx.strokeStyle = fetchColor(grabber);
             ctx.arc(0, 0, this.radius * psd.cameraLocation.s, 0, Math.PI * 2);
             ctx.fill();
-            ctx.stroke();
+            if (this.lineWidth > 0) ctx.stroke();
         }
 
         // draw the base token
@@ -139,7 +150,7 @@ class Token {
         ctx.fillStyle = fetchColor(this.baseColor);
         ctx.strokeStyle = fetchColor(this.lineColor);
         ctx.fill();
-        ctx.stroke();
+        if (this.lineWidth > 0) ctx.stroke();
 
         // draw the linked image, if one exists
         if (this.linkedImage && this.linkedImage.drawableObject.complete) {
@@ -195,8 +206,7 @@ class Token {
                 return;
             }
             token.position = token.originalPosition;
-            token.baseColor = randomColor(true);
-            Token.openEditMenu(token, e2);
+            Token.openEditMenu(e2, token);
         }
         document.addEventListener("mousemove", moveToken);
         document.addEventListener("mouseup", mouseUp);
@@ -204,9 +214,62 @@ class Token {
         socket.talk(encodePacket([protocol.server.tokenGrabbed, token.id, token.name], ["int8", "int32", "string"]));
     }
 
+    // uses the token's data to populate the update menu
+    sendToTokenMenu() {
+        document.getElementById("tokenNameInput").value = this.name;
+        document.getElementById("tokenDescriptionInput").value = this.description;
+        document.getElementById("tokenRadiusInput").value = this.radius;
+        document.getElementById("tokenBorderRadiusInput").value = this.lineWidth;
+        document.getElementById("tokenZIndexInput").value = this.zIndex;
+        document.getElementById("tokenGridSnapInput").value = this.snapInterval;
+        document.getElementById("tokenColorInput").value = this.baseColor;
+        document.getElementById("tokenBorderColorInput").value = this.lineColor;
+        document.getElementById("tokenShapeInput").value = this.shape;
+        document.getElementById("tokenImageFileDrop").value = "";
+        document.getElementById("tokenImageFileDropLabel").innerText = this.linkedImage ? this.linkedImage.name : "Click to Upload a File";
+    }
+
+    // uses the update menu's data to update this token
+    extractFromTokenMenu() {
+        let clone = new Token(this);
+        clone.loaded = false;
+        psd.tokens.push(clone);
+        
+        this.id = Math.floor(Math.random() * 2**31);
+        this.name = sanitize(document.getElementById("tokenNameInput").value, "string", {max: 32, default: "Unnamed Token"});
+        this.description = sanitize(document.getElementById("tokenDescriptionInput").value, "string", {max: 1000, default: ""});
+        this.radius = sanitize(document.getElementById("tokenRadiusInput").value, "float", {min: 1, max: 1000, default: 20});
+        this.lineWidth = sanitize(document.getElementById("tokenBorderRadiusInput").value, "float", {min: 0, max: 1000, default: 5});
+        this.zIndex = sanitize(document.getElementById("tokenZIndexInput").value, "float", {min: -1000, max: 1000, default: 0});
+        this.snapInterval = sanitize(document.getElementById("tokenGridSnapInput").value, "float", {min: 0.1, max: 1000, default: 1});
+        this.baseColor = sanitize(document.getElementById("tokenColorInput").value, "color", {default: "red"});
+        this.lineColor = sanitize(document.getElementById("tokenBorderColorInput").value, "color", {default: "white"});
+        this.shape = sanitize(document.getElementById("tokenShapeInput").value, "option", {valid: ["circle", "square"], default: "circle"});
+
+        // wait until our image loads if we have one, otherwise just update it now
+        const token = this;
+        if (document.getElementById("tokenImageFileDrop").files.length > 0) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const img = new SavedImage({
+                    data: reader.result,
+                    name: document.getElementById("tokenImageFileDrop").files[0].name
+                });
+                psd.images.push(img);
+                token.linkedImage = img;
+                
+                token.sendToken(clone.id);
+            };
+            reader.readAsDataURL(document.getElementById("tokenImageFileDrop").files[0]);
+        }
+        else token.sendToken(clone.id);
+    }
+
     static openEditMenu(e, token = null) {
         doc.tokenDataMenu.classList.remove("hidden");
         psd.inMenu = true;
+        psd.currentEditObject = token;
+        token.sendToTokenMenu();
         sendMouseUpdate(e);
     }
 }
@@ -214,20 +277,64 @@ class Token {
 class Grid {
     constructor(p) {
         this.type = p.type ?? "grid";
+        this.id = p.id ?? Math.floor(Math.random() * 2**31);
 
         this.name = p.name ?? "Unnamed Grid";
 
         this.radius = p.radius ?? 50;
         this.dim = p.dim ?? {x: 10, y: 10};
         this.position = p.position ?? {x: 0, y: 0};
+        this.realDim = p.realDim ?? {x: this.radius * this.dim.x, y: this.radius * this.dim.y};
 
         this.shape = p.shape ?? "square";
-        this.cropImage = p.cropImage ?? true;
         this.lineColor = p.lineColor ?? "red";
-        this.lineWidth = p.lineWidth ?? 5;
+        this.lineWidth = p.lineWidth ?? 2;
         this.zIndex = p.zIndex ?? -1;
 
         this.linkedImage = p.linkedImage ?? null;
+        this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
+
+        this.synced = p.synced ?? false;
+        this.loaded = p.loaded ?? false;
+        if (this.synced) return;
+
+        this.sendGrid();
+    }
+
+    // unloads a grid and tells the server to drop it
+    delete() {
+        this.loaded = false;
+        socket.talk(encodePacket([protocol.server.deleteObject, this.id, this.name], ["int8", "int32", "string"]));
+    }
+
+    // directly sends the token object to the server
+    sendGrid(oldid) {
+        const gridLayout = [
+            /* 00 */ protocol.server.gridCreated, "int8",
+            /* 01 */ this.type, "string",
+            /* 02 */ this.id, "int32",
+            /* 03 */ this.name, "string",
+            /* 04 */ this.radius, "float32",
+            /* 05 */ this.dim.x, "float32",
+            /* 06 */ this.dim.y, "float32",
+            /* 07 */ this.position.x, "float32",
+            /* 08 */ this.position.y, "float32",
+            /* 09 */ this.shape, "string",
+            /* 10 */ this.lineColor, "string",
+            /* 11 */ this.lineWidth, "float32",
+            /* 12 */ this.zIndex, "int32",
+            /* 13 */ this.linkedImage ? this.linkedImage.id : -1, "int32",
+            /* 14 */ this.linkedImage ? this.linkedImage.name : "", "string",
+            /* 15 */ oldid ?? this.id, "int32"
+        ];
+        const gridData = gridLayout.filter((e, i) => {return i % 2 === 0});
+        const gridTypes = gridLayout.filter((e, i) => {return i % 2 === 1});
+        socket.talk(encodePacket(gridData, gridTypes));
+
+        // if the server doesn't have the image asset, send it over
+        if (this.linkedImage) {
+            socket.talk(encodePacket([protocol.server.assetInquiry, this.linkedImage.id, this.linkedImage.name], ["int8", "int32", "string"]));
+        }
     }
 
     render() {
@@ -237,11 +344,19 @@ class Grid {
             (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
             (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
         );
+        ctx.translate(-(this.radius * this.dim.x / 2) * psd.cameraLocation.s, -(this.radius * this.dim.y / 2) * psd.cameraLocation.s);
         ctx.strokeStyle = fetchColor(this.lineColor);
-        ctx.lineWidth = this.lineWidth;
+        ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
+        
+        // draw the linked image, if one exists
+        if (this.linkedImage && this.linkedImage.drawableObject.complete) {
+            ctx.beginPath();
+            let ratio = this.linkedImage.drawableObject.height / this.linkedImage.drawableObject.width;
+            ctx.drawImage(this.linkedImage.drawableObject, 0, 0, this.realDim.x * psd.cameraLocation.s, this.realDim.x * psd.cameraLocation.s * ratio);
+        }
+        
         switch (this.shape) {
             case "square": {
-                ctx.translate(-(this.radius * this.dim.x / 2) * psd.cameraLocation.s, -(this.radius * this.dim.y / 2) * psd.cameraLocation.s);
                 for (let i = 0; i < this.dim.x + 1; i++) {
                     ctx.moveTo(this.radius * i * psd.cameraLocation.s, 0);
                     ctx.lineTo(this.radius * i * psd.cameraLocation.s, this.radius * this.dim.y * psd.cameraLocation.s);
@@ -250,8 +365,7 @@ class Grid {
                     ctx.moveTo(0, this.radius * i * psd.cameraLocation.s);
                     ctx.lineTo(this.radius * this.dim.x * psd.cameraLocation.s, this.radius * i * psd.cameraLocation.s);
                 }
-                ctx.stroke();
-                ctx.restore();
+                if (this.lineWidth > 0) ctx.stroke();
                 break;
             }
             case "hex": {
@@ -264,6 +378,76 @@ class Grid {
         }
 
         ctx.restore();
+    }
+
+    // returns true if a location falls within this bound
+    inside(loc) {
+        if (loc.x < this.position.x - this.realDim.x/2 || loc.x > this.position.x + this.realDim.x/2) return false;
+        if (loc.y < this.position.y - this.realDim.y/2 || loc.y > this.position.y + this.realDim.y/2) return false;
+        return true;
+    }
+
+    // uses the token's data to populate the update menu
+    sendToGridMenu() {
+        document.getElementById("gridNameInput").value = this.name;
+        document.getElementById("gridRadiusInput").value = this.radius;
+        document.getElementById("gridXDimInput").value = this.dim.x;
+        document.getElementById("gridYDimInput").value = this.dim.y;
+        document.getElementById("gridXPosInput").value = this.position.x;
+        document.getElementById("gridYPosInput").value = this.position.y;
+        document.getElementById("gridLineWidthInput").value = this.lineWidth;
+        document.getElementById("gridLineColorInput").value = this.lineColor;
+        document.getElementById("gridZIndexInput").value = this.zIndex;
+        document.getElementById("gridShapeInput").value = this.shape;
+        document.getElementById("gridImageFileDrop").value = "";
+        document.getElementById("gridImageFileDropLabel").innerText = this.linkedImage ? this.linkedImage.name : "Click to Upload a File";
+    }
+
+    // uses the update menu's data to update this token
+    extractFromGridMenu() {
+        let clone = new Grid(this);
+        clone.loaded = false;
+        psd.grids.push(clone);
+        
+        this.id = Math.floor(Math.random() * 2**31);
+        this.name = sanitize(document.getElementById("gridNameInput").value, "string", {max: 32, default: "Unnamed Grid"});
+        this.radius = sanitize(document.getElementById("gridRadiusInput").value, "float", {min: 1, max: 1000, default: 50});
+        this.dim.x = sanitize(document.getElementById("gridXDimInput").value, "float", {min: 1, max: 1000, default: 10});
+        this.dim.y = sanitize(document.getElementById("gridYDimInput").value, "float", {min: 1, max: 1000, default: 10});
+        this.position.x = sanitize(document.getElementById("gridXPosInput").value, "float", {min: -1000000, max: 1000000, default: 0});
+        this.position.y = sanitize(document.getElementById("gridYPosInput").value, "float", {min: -1000000, max: 1000000, default: 0});
+        this.lineWidth = sanitize(document.getElementById("gridLineWidthInput").value, "float", {min: 0, max: 1000, default: 2});
+        this.lineColor = sanitize(document.getElementById("gridLineColorInput").value, "color", {default: "white"});
+        this.zIndex = sanitize(document.getElementById("gridZIndexInput").value, "float", {min: -1000, max: 1000, default: 0});
+        this.shape = sanitize(document.getElementById("gridShapeInput").value, "option", {valid: ["hexagon", "square"], default: "square"});
+
+        // wait until our image loads if we have one, otherwise just update it now
+        const grid = this;
+        if (document.getElementById("gridImageFileDrop").files.length > 0) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const img = new SavedImage({
+                    data: reader.result,
+                    name: document.getElementById("gridImageFileDrop").files[0].name
+                });
+                psd.images.push(img);
+                grid.linkedImage = img;
+                
+                grid.sendGrid(clone.id);
+            };
+            reader.readAsDataURL(document.getElementById("gridImageFileDrop").files[0]);
+        }
+        else grid.sendGrid(clone.id);
+    }
+
+    // opens the grid edit menu
+    static openEditMenu(e, grid = null) {
+        if (grid === null) return;
+        doc.gridDataMenu.classList.remove("hidden");
+        psd.inMenu = true;
+        psd.currentEditObject = grid;
+        grid.sendToGridMenu();
+        sendMouseUpdate(e);
     }
 }
 
@@ -402,6 +586,7 @@ class Socket {
                 for (let i = 0; i < d[1].length; i += 2) {
                     const a = findAsset(d[1][i + 0], d[1][i + 1]);
                     if (a === null) {
+                        console.log("oh shit, let me grab dat")
                         requestedAssets.push(d[1][i + 0], d[1][i + 1]);
                         requestedAssets[1]++;
                     }
@@ -419,7 +604,8 @@ class Socket {
                 const d = decodePacket(reader, [
                     "int8", 
                     "repeat", "int32", "string", "string", "end", 
-                    "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32", "end"
+                    "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32", "end",
+                    "repeat", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int32", "string", "int32", "end"
                 ]);
                 console.log("Data packet recieved!");
                 for (let i = 0; i < d[1].length; i += 3) {
@@ -431,7 +617,7 @@ class Socket {
                     }));
                 }
                 for (let i = 0; i < d[2].length; i += 18) {
-                    if (findAsset(d[2][i + 1], d[1][i + 2]) !== null) continue;
+                    if (findAsset(d[2][i + 1], d[2][i + 2]) !== null) continue;
                     psd.tokens.push(new Token({
                         type: d[2][i + 0],
                         id: d[2][i + 1],
@@ -451,6 +637,23 @@ class Socket {
                         synced: true,
                     }));
                 }
+                for (let i = 0; i < d[3].length; i += 14) {
+                    if (findAsset(d[3][i + 1], d[3][i + 2]) !== null) continue;
+                    psd.grids.push(new Grid({
+                        type: d[3][i + 0],
+                        id: d[3][i + 1],
+                        name: d[3][i + 2],
+                        radius: d[3][i + 3],
+                        dim: {x: d[3][i + 4], y: d[3][i + 5]},
+                        position: {x: d[3][i + 6], y: d[3][i + 7]},
+                        shape: d[3][i + 8],
+                        lineColor: d[3][i + 9],
+                        lineWidth: d[3][i + 10],
+                        zIndex: d[3][i + 11],
+                        linkedImageAwait: {id: d[3][i + 12], name: d[3][i + 13]},
+                        synced: true,
+                    }));
+                }
                 document.getElementById("loadingScreen").classList.add("hidden");
                 break;
             }
@@ -459,7 +662,8 @@ class Socket {
                 const d = decodePacket(reader, [
                     "int8",
                     "repeat", "int32", "float32", "float32", "string", "int8", "end",
-                    "repeat", "int32", "string", "float32", "float32", "end"
+                    "repeat", "int32", "string", "float32", "float32", "end",
+                    "repeat", "int32", "string", "end"
                 ]);
                 // update player mouse positions
                 for (let i = 0; i < d[1].length; i += 5) {
@@ -484,6 +688,7 @@ class Socket {
                     for (let i = 0; i < d[2].length; i += 4) {
                         if (token.id === d[2][i + 0] && token.name === d[2][i + 1]) {
                             found = true;
+                            token.loaded = true;
                             if (!token.preventDefaultPosition) {
                                 token.position.x = d[2][i + 2];
                                 token.position.y = d[2][i + 3];
@@ -493,7 +698,20 @@ class Socket {
                     }
                     if (!found) {
                         token.loaded = false;
-                        console.warn("token not found for positioning!");
+                    }
+                }
+                // update existing grids
+                for (let grid of psd.grids) {
+                    let found = false;
+                    for (let i = 0; i < d[3].length; i += 2) {
+                        if (grid.id === d[3][i + 0] && grid.name === d[3][i + 1]) {
+                            found = true;
+                            grid.loaded = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        grid.loaded = false;
                     }
                 }
 
@@ -522,6 +740,17 @@ class Socket {
 
                 t.preventDefaultPosition = false;
                 t.grabbingPlayer = null;
+                break;
+            }
+            // if the server requests an asset it doesn't have, send it
+            case protocol.client.assetSendRequest: {
+                const d = decodePacket(reader, ["int8", "int32", "string"]);
+                let asset = findAsset(d[1], d[2]);
+                if (findAsset === null) break;
+                socket.talk(encodePacket(
+                    [protocol.server.uploadRequiredAssets, 1, asset.id, asset.name, asset.data, 0],
+                    ["int8", "repeat", "int32", "string", "string", "end"]
+                ));
                 break;
             }
             default: {
@@ -555,6 +784,10 @@ doc.gameCanvas.addEventListener("mousedown", function(e) {
     if (psd.inMenu) {
         psd.inMenu = false;
         doc.tokenDataMenu.classList.add("hidden");
+        doc.gridDataMenu.classList.add("hidden");
+        if (psd.currentEditObject === null) return;
+        if (psd.currentEditObject.type === "token") psd.currentEditObject.extractFromTokenMenu();
+        else if (psd.currentEditObject.type === "grid") psd.currentEditObject.extractFromGridMenu();
         sendMouseUpdate(e);
         return;
     }
@@ -562,6 +795,7 @@ doc.gameCanvas.addEventListener("mousedown", function(e) {
     // go through all our tokens and see if we are trying to grab one
     let grabbedToken = null;
     for (let token of psd.tokens) {
+        if (!token.loaded) continue;
         if (grabbedToken !== null && token.zIndex < grabbedToken.zIndex) continue;
         if (!token.checkDrag({
             x: (e.clientX - W/2) / psd.cameraLocation.s + psd.cameraLocation.x,
@@ -621,14 +855,14 @@ doc.gameCanvas.addEventListener("mousemove", sendMouseUpdate);
 
 /* Sense where a player right clicks, and add menu options accordingly */
 doc.gameCanvas.addEventListener("contextmenu", function(e) {
-    populateRightClick([{
+    let clickOptions = [{
         name: "Create Token (testing)",
         function: function() {
             if (!e.ctrlKey) {
                 psd.tokens.push(new Token({
                     name: "Random Token",
                     description: "Something cool goes here I think",
-                    position: {x: Math.random() * 500 - 250, y: Math.random() * 500 - 250},
+                    position: {x: psd.cameraLocation.x, y: psd.cameraLocation.y},
                     baseColor: randomColor(),
                 }));
             }
@@ -647,7 +881,7 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                         psd.tokens.push(new Token({
                             name: "Random Token",
                             description: "Something cool goes here I think",
-                            position: {x: Math.random() * 500 - 250, y: Math.random() * 500 - 250},
+                            position: {x: psd.cameraLocation.x, y: psd.cameraLocation.y},
                             baseColor: randomColor(),
                             linkedImage: img,
                         }));
@@ -657,7 +891,29 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                 }
             );
         }
-    }]);
+    }, {
+        name: "Create Grid (testing)",
+        function: function() {
+            psd.grids.push(new Grid({
+                name: "Random Grid",
+                position: {x: psd.cameraLocation.x, y: psd.cameraLocation.y},
+                lineColor: randomColor(),
+            }));
+        }
+    }];
+    for (let grid of psd.grids) {
+        if (!grid.loaded) continue;
+        if (grid.inside({x: e.clientX + psd.cameraLocation.x - W/2, y: e.clientY + psd.cameraLocation.y - H/2})) {
+            clickOptions.push({
+                name: "Edit Grid",
+                function: function() {
+                    Grid.openEditMenu(e, grid);
+                }
+            });
+            break;
+        }
+    }
+    populateRightClick(clickOptions);
 });
 
 /* Add menu navigation events to buttons */
@@ -703,10 +959,43 @@ document.getElementById("frontJoinGameJoinButton").addEventListener("click", fun
 });
 
 
-
 // the disconnect prompter, for when a person DCs
 document.getElementById("reconnectPrompter").addEventListener("click", function(e) {
     socket.connect();
+});
+
+// the token menu remove image button
+document.getElementById("tokenRemoveReferenceImageButton").addEventListener("click", function(e) {
+    if (psd.currentEditObject === null || psd.currentEditObject.type !== "token") return;
+    psd.currentEditObject.linkedImage = null;
+    document.getElementById("tokenImageFileDropLabel").innerText = "Click to Upload a File";
+    document.getElementById("tokenImageFileDrop").value = "";
+});
+
+// the grid menu remove image button
+document.getElementById("gridRemoveReferenceImageButton").addEventListener("click", function(e) {
+    if (psd.currentEditObject === null || psd.currentEditObject.type !== "grid") return;
+    psd.currentEditObject.linkedImage = null;
+    document.getElementById("gridImageFileDropLabel").innerText = "Click to Upload a File";
+    document.getElementById("gridImageFileDrop").value = "";
+});
+
+// the button to delete a token from reality
+document.getElementById("deleteTokenButton").addEventListener("click", function(e) {
+    if (psd.currentEditObject === null || psd.currentEditObject.type !== "token") return;
+    psd.currentEditObject.delete();
+    psd.inMenu = false;
+    doc.tokenDataMenu.classList.add("hidden");
+    sendMouseUpdate(e);
+});
+
+// the button to delete a grid from reality
+document.getElementById("deleteGridButton").addEventListener("click", function(e) {
+    if (psd.currentEditObject === null || psd.currentEditObject.type !== "grid") return;
+    psd.currentEditObject.delete();
+    psd.inMenu = false;
+    doc.gridDataMenu.classList.add("hidden");
+    sendMouseUpdate(e);
 });
 
 /* Load saved input contents */
@@ -746,6 +1035,14 @@ function update() {
             token.linkedImage = image;
         }
     }
+    for (let grid of psd.grids) {
+        if (grid.linkedImage !== null || grid.linkedImageAwait.id === -1) continue;
+        for (let image of psd.images) {
+            if (image.type !== "image") continue;
+            if (image.id !== grid.linkedImageAwait.id || image.name !== grid.linkedImageAwait.name) continue;
+            grid.linkedImage = image;
+        }
+    }
 
     // begin rendering
     ctx.clearRect(0, 0, W, H);
@@ -755,6 +1052,7 @@ function update() {
         return a.zIndex - b.zIndex;
     });
     for (let grid of psd.grids) {
+        if (!grid.loaded) continue;
         grid.render();
     }
     ctx.beginPath();
@@ -768,7 +1066,9 @@ function update() {
         return a.zIndex - b.zIndex;
     });
     for (let token of psd.tokens) {
+        if (!token.loaded) continue;
         token.render();
+        ctx.globalAlpha = 1;
     }
 
     // finally, draw player's mouses over everything
@@ -780,9 +1080,3 @@ function update() {
     requestAnimationFrame(update);
 }
 requestAnimationFrame(update);
-
-psd.grids.push(new Grid({
-    name: "Random Background",
-    position: {x: 0, y: 0},
-    lineColor: "red",
-}));

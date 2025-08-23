@@ -1301,10 +1301,10 @@ span {
 /* The token data menu, for adjusting the settings of a token object */
 .objectDataMenu {
     position: absolute;
-    left: calc(50vw - 60vh);
-    top: 10vh;
-    width: 120vh;
-    height: 80vh;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
     background-color: transparent;
     z-index: 5;
     pointer-events: none;
@@ -1313,21 +1313,40 @@ span {
 .objectShowcaseView {
     position: absolute;
     pointer-events: auto;
-    left: 0;
-    top: 0;
-    width: 30vh;
-    height: 30vh;
+    left: 5vw;
+    top: calc(45vh - 10vw);
+    width: 20vw;
+    height: 20vw;
     background-color: var(--black);
     border: solid var(--white) 1vmin;
+}
+
+.objectMenuDelete {
+    position: absolute;
+    pointer-events: auto;
+    left: 5vw;
+    top: calc(50vh + 10vw);
+    width: 20vw;
+    height: 5vh;
+    font-size: 3vh;
+    background-color: var(--red);
+    color: var(--white);
+    text-align: center;
+}
+.objectMenuDelete:hover {
+    background-color: var(--darkRed);
+}
+.objectMenuDelete:active {
+    background-color: var(--veryDarkRed);
 }
 
 .objectMenuDataProperties {
     position: absolute;
     pointer-events: auto;
     overflow-y: scroll;
-    left: 35vh;
-    top: 0;
-    width: 40vh;
+    left: 30vw;
+    top: 10vh;
+    width: 30vw;
     height: 80vh;
     background-color: var(--veryDarkGrey);
 }
@@ -1336,9 +1355,9 @@ span {
     position: absolute;
     pointer-events: auto;
     overflow-y: scroll;
-    left: 80vh;
-    top: 0;
-    width: 40vh;
+    left: 65vw;
+    top: 10vh;
+    width: 30vw;
     height: 80vh;
     background-color: var(--veryDarkGrey);
 }
@@ -1346,9 +1365,10 @@ span {
 .objectMenuInput {
     position: relative;
     display: block;
-    width: 36vh;
-    left: 2vh;
+    width: 28vw;
+    left: 1vw;
     height: 5vh;
+    font-size: 3vh;
     background-color: var(--darkGrey);
     text-align: center;
     margin-bottom: 2vmin;
@@ -1360,12 +1380,30 @@ span {
     background-color: var(--grey);
 }
 
+.objectMenuButton {
+    position: relative;
+    display: block;
+    width: 28vw;
+    left: 1vw;
+    height: 5vh;
+    font-size: 3vh;
+    background-color: var(--darkGrey);
+    text-align: center;
+    margin-bottom: 2vmin;
+}
+.objectMenuButton:hover {
+    background-color: var(--grey);
+}
+.objectMenuButton:active {
+    background-color: var(--lightGrey);
+}
+
 .objectMenuLabel {
     position: relative;
     display: block;
     font-size: 3vh;
-    width: 36vh;
-    left: 2vh;
+    width: 28vw;
+    left: 1vw;
     height: 4vh;
     color: var(--veryLightGrey);
     text-align: center;

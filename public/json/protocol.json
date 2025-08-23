@@ -11,7 +11,8 @@
         "basicUpdate": 8,
         "tokenGrabbed": 9,
         "missingAssets": 10,
-        "tokenReleased": 11
+        "tokenReleased": 11,
+        "assetSendRequest": 12
     },
     "server": {
         "confirmConnection": 0,
@@ -24,6 +25,9 @@
         "sceneSanityCheck": 7,
         "tokenGrabbed": 8,
         "tokenReleased": 9,
-        "tokenMoved": 10
+        "tokenMoved": 10,
+        "assetInquiry": 11,
+        "gridCreated": 12,
+        "deleteObject": 13
     }
 }

@@ -43,7 +43,6 @@ class Lobby {
     uploadAssets(assets) {
         let newAsset = false;
         for (let i = 0; i < assets.length; i += 3) {
-            //! make this sense type later
             for (let image of this.objects.images) if (image.id === assets[i + 0] && image.name === assets[i + 1]) continue;
             this.objects.images.push(new Image({id: assets[i + 0], name: assets[i + 1], data: assets[i + 2]}));
             newAsset = true;
@@ -88,26 +87,43 @@ class Lobby {
         }
         requestedAssets.push(0);
 
-        // now take all of the objects the client doesn't have and send them too
-        requestedAssets.push(requestedObjects.length);
+        // now send every token
+        let tokenCount = requestedAssets.length;
+        requestedAssets.push(0);
         for (let obj of requestedObjects) {
+            if (obj.type !== "token") continue;
             requestedAssets = requestedAssets.concat(obj.toExport());
+            requestedAssets[tokenCount]++;
+        }
+        requestedAssets.push(0);
+
+        // and finally every grid
+        let gridCount = requestedAssets.length;
+        requestedAssets.push(0);
+        for (let obj of requestedObjects) {
+            if (obj.type !== "grid") continue;
+            requestedAssets = requestedAssets.concat(obj.toExport());
+            requestedAssets[gridCount]++;
         }
         requestedAssets.push(0);
 
         player.talk(ptools.encodePacket(requestedAssets, [
             "int8", 
             "repeat", "int32", "string", "string", "end", 
-            "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32", "end"
+            "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32", "end",
+            "repeat", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int32", "string", "int32", "end"
         ]));
 
     }
 
     // adds a token to the server, and syncs it with all players
     addToken(d) {
-        let tokenFound = false;
-        for (let token of this.objects.tokens) if (token.id === d[2] && token.name === d[3]) tokenFound = true;
-        if (tokenFound) return;
+        let tokenFound = null;
+        for (let token of this.objects.tokens) if (token.id === d[18]) tokenFound = token;
+        if (tokenFound !== null) {
+            if (d[18] === d[2]) return;
+            this.objects.tokens.splice(this.objects.tokens.indexOf(tokenFound), 1);
+        }
 
         let token = new Token({
             type: d[1],
@@ -125,9 +141,40 @@ class Lobby {
             linkedSheetAwait: {id: d[14], name: d[15]},
             linkedImageAwait: {id: d[16], name: d[17]},
         });
-        console.log(`Added a token with id ${token.id}!`)
+        if (tokenFound === null) console.log(`Added a token with id ${token.id}!`);
+        else console.log(`Updated token with id ${d[18]}, now id ${token.id}`);
 
         this.objects.tokens.push(token);
+
+        this.checkAssets();
+    }
+
+    // adds a grid and syncs it
+    addGrid(d) {
+        let gridFound = null;
+        for (let grid of this.objects.grids) if (grid.id === d[15]) gridFound = grid;
+        if (gridFound !== null) {
+            if (d[15] === d[2]) return;
+            this.objects.grids.splice(this.objects.grids.indexOf(gridFound), 1);
+        }
+
+        let grid = new Grid({
+            type: d[1],
+            id: d[2],
+            name: d[3],
+            radius: d[4],
+            dim: {x: d[5], y: d[6]},
+            position: {x: d[7], y: d[8]},
+            shape: d[9],
+            lineColor: d[10],
+            lineWidth: d[11],
+            zIndex: d[12],
+            linkedImageAwait: {id: d[13], name: d[14]},
+        });
+        if (gridFound === null) console.log(`Added a grid with id ${grid.id}!`);
+        else console.log(`Updated grid with id ${d[15]}, now id ${grid.id}`);
+
+        this.objects.grids.push(grid);
 
         this.checkAssets();
     }
@@ -198,11 +245,19 @@ class Lobby {
         }
         sending.push(0);
 
+        // send what grids exist for loading purposes
+        sending.push(this.objects.grids.length);
+        for (let grid of this.objects.grids) {
+            sending.push(grid.id, grid.name);
+        }
+        sending.push(0);
+
         for (let player of this.players) {
             player.talk(ptools.encodePacket(sending, [
                 "int8",
                 "repeat", "int32", "float32", "float32", "string", "int8", "end",
-                "repeat", "int32", "string", "float32", "float32", "end"
+                "repeat", "int32", "string", "float32", "float32", "end",
+                "repeat", "int32", "string", "end"
             ]));
         }
     }
@@ -249,14 +304,38 @@ class Grid extends Object {
     constructor(p) {
         super(p);
 
-        this.radius = 0.05;
-        this.lineWidth = 0.01
-        this.units = "viewMin";
-        this.dim = {x: 10, y: 10};
-        this.shape = "square";
+        this.type = p.type ?? "grid";
+        this.id = p.id ?? Math.floor(Math.random() * 2**31);
 
-        this.imageOffset = {x: 0, y: 0};
-        this.lineColor = "red";
+        this.radius = p.radius ?? 50;
+        this.lineWidth = p.lineWidth ?? 2;
+        this.lineColor = p.lineColor ?? "red";
+        this.dim = p.dim ?? {x: 10, y: 10};
+        this.shape = p.shape ?? "square";
+        this.zIndex = p.zIndex ?? 0;
+
+        this.imageOffset = p.imageOffset ?? {x: 0, y: 0};
+        this.linkedImage = p.linkedImage ?? null;
+        this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
+    }
+
+    toExport() {
+        return [
+            this.type,
+            this.id,
+            this.name,
+            this.radius,
+            this.dim.x,
+            this.dim.y,
+            this.position.x,
+            this.position.y,
+            this.shape,
+            this.lineColor,
+            this.lineWidth,
+            this.zIndex,
+            this.linkedImageAwait.id,
+            this.linkedImageAwait.name
+        ];
     }
 }
 
@@ -435,7 +514,7 @@ const sockets = {
                 // when a client creates a token, we sync it with all players
                 case protocol.server.tokenCreated: {
                     if (!this.playerLobby) return;
-                    const d = ptools.decodePacket(reader, ['int8', 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string']);
+                    const d = ptools.decodePacket(reader, ['int8', 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32"]);
                     this.playerLobby.addToken(d);
                     break;
                 }
@@ -450,7 +529,10 @@ const sockets = {
                     if (!this.playerLobby) return;
                     const d = ptools.decodePacket(reader, ["int8", "int32", "string"]);
                     const token = this.playerLobby.findAssetById(d[1], d[2]);
-                    if (token === null) return;
+                    if (token === null) {
+                        console.warn(`unrecognized token with id ${d[1]}`);
+                        return;
+                    }
                     token.grabbingPlayer = this.playerInstance;
                     for (let player of this.playerLobby.players) {
                         player.talk(ptools.encodePacket([protocol.client.tokenGrabbed, token.id, token.name, token.grabbingPlayer.id], ["int8", "int32", "string", "int32"]));
@@ -477,6 +559,44 @@ const sockets = {
                     const token = this.playerLobby.findAssetById(d[1], d[2]);
                     if (token === null || token.grabbingPlayer !== this.playerInstance) return;
                     token.position = {x: d[3], y: d[4]};
+                    break;
+                }
+                case protocol.server.assetInquiry: {
+                    if (!this.playerLobby) return;
+                    const d = ptools.decodePacket(reader, ["int8", "int32", "string"]);
+                    if (this.playerLobby.findAssetById(d[1], d[2]) === null) {
+                        this.talk(ptools.encodePacket([protocol.client.assetSendRequest, d[1], d[2]], ["int8", "int32", "string"]));
+                    }
+                    break;
+                }
+                // when a client creates a grid, sync it with everyone
+                case protocol.server.gridCreated: {
+                    if (!this.playerLobby) return;
+                    const d = ptools.decodePacket(reader, ["int8", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int32", "string", "int32"]);
+                    this.playerLobby.addGrid(d);
+                    break;
+                }
+                // unloads and object
+                case protocol.server.deleteObject: {
+                    if (!this.playerLobby) return;
+                    const d = ptools.decodePacket(reader, ["int8", "int32", "string"]);
+                    const obj = this.playerLobby.findAssetById(d[1], d[2]);
+                    if (obj === null) return;
+                    switch (obj.type) {
+                        case "token": {
+                            if (this.playerLobby.objects.tokens.indexOf(obj) !== -1) {
+                                this.playerLobby.objects.tokens.splice(this.playerLobby.objects.tokens.indexOf(obj), 1);
+                                console.log("begone foul scum")
+                            }
+                            break;
+                        }
+                        case "grid": {
+                            if (this.playerLobby.objects.grids.indexOf(obj) !== -1) {
+                                this.playerLobby.objects.grids.splice(this.playerLobby.objects.grids.indexOf(obj), 1);
+                            }
+                            break;
+                        }
+                    }
                     break;
                 }
                 default: {

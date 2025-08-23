@@ -1,4 +1,4 @@
-import { dice, skillList, baseCharacteristics, modifier, classNames } from "./helpers.js";
+import { dice, skillList, baseCharacteristics, modifier, classNames, validColors } from "./helpers.js";
 
 export const doc = {
     frontPageSubmitButton: document.getElementById("frontPageSubmitButton"),
@@ -24,6 +24,7 @@ export const doc = {
     gameCanvas: document.getElementById("gameCanvas"),
     buildCanvas: document.getElementById("buildCanvas"),
     tokenDataMenu: document.getElementById("tokenDataMenu"),
+    gridDataMenu: document.getElementById("gridDataMenu"),
 }
 
 // basic data storage for characters, and the currently viewed character
@@ -44,24 +45,14 @@ export let psd = {
     images: [],
     sheets: [],
     myId: -1,
-    inMenu: false
+    inMenu: false,
+    currentEditObject: null
 };
 
 if (localStorage.getItem("psd")) psd = JSON.parse(localStorage.getItem("psd"));
 else await loadDefaultCharacterSheet();
 
 export function randomColor(noWhites = false) {
-    const validColors = [
-        "black", "veryDarkGrey", "darkGrey", "grey", "lightGrey", "veryLightGrey", "white",
-        "red", "lightRed", "veryLightRed", "darkRed", "veryDarkRed", "greyRed",
-        "orange", "lightOrange", "veryLightOrange", "darkOrange", "veryDarkOrange", "greyOrange",
-        "yellow", "lightYellow", "veryLightYellow", "darkYellow", "veryDarkYellow", "greyYellow",
-        "green", "lightGreen", "veryLightGreen", "darkGreen", "veryDarkGreen", "greyGreen",
-        "cyan", "lightCyan", "veryLightCyan", "darkCyan", "veryDarkCyan", "greyCyan",
-        "blue", "lightBlue", "veryLightBlue", "darkBlue", "veryDarkBlue", "greyBlue",
-        "purple", "lightPurple", "veryLightPurple", "darkPurple", "veryDarkPurple", "greyPurple",
-        "pink", "lightPink", "veryLightPink", "darkPink", "veryDarkPink", "greyPink"
-    ];
     if (noWhites) return validColors[Math.floor(Math.random() * (validColors.length - 7)) + 7];
     return validColors[Math.floor(Math.random() * validColors.length)];
 }
@@ -340,6 +331,28 @@ doc.popupMenuFileDrop.addEventListener("change", function(e) {
     const file = doc.popupMenuFileDrop.files[0];
     doc.popupMenuFileDropLabel.innerText = `${file.name} (${Math.ceil(file.size/1024)} KB)`;
 });
+
+// add colors options to all marked selects
+for (let select of document.getElementsByClassName("colorInputAutofill")) {
+    for (let color of validColors) {
+        let option = document.createElement("option");
+        option.value = color;
+        option.innerText = color[0].toUpperCase() + color.substring(1);
+        select.appendChild(option);
+    }
+}
+
+// makes it where all file drops show the file they are holding correctly
+for (let fileDrop of document.getElementsByClassName("fileDropAutofill")) {
+    document.getElementById(fileDrop.htmlFor).addEventListener("change", function(e) {
+        if (document.getElementById(fileDrop.htmlFor).files.length <= 0) {
+            fileDrop.innerText = "Click to Upload a File";
+            return;
+        }
+        const file = document.getElementById(fileDrop.htmlFor).files[0];
+        fileDrop.innerText = `${file.name} (${Math.ceil(file.size/1024)} KB)`;
+    });
+}
 
 //_ Character sheet functionalities
 
@@ -1083,7 +1096,7 @@ export function createPopup(title, description, special, button1, callback1, but
     doc.popupMenuSingleButton.classList.add("hidden");
     doc.popupMenuLeftDoubleButton.classList.add("hidden");
     doc.popupMenuRightDoubleButton.classList.add("hidden");
-    doc.popupMenuFileDrop.classList.add("hidden");
+    doc.popupMenuFileDropLabel.classList.add("hidden");
 
     switch (special.type) {
         // just simple text

@@ -13,6 +13,7 @@ function resize() {
     doc.buildCanvas.height = H;
     R = Math.min(W, H);
 }
+setInterval(resize, 200);
 
 let ctx = doc.gameCanvas.getContext("2d");
 ctx.lineCap = "round";
@@ -49,7 +50,7 @@ class SavedImage {
 }
 
 class Token {
-    constructor(p) {
+    constructor(p, waitSync = false) {
         this.type = p.type ?? "token";
         this.id = p.id ?? Math.floor(Math.random() * 2**31);
 
@@ -57,8 +58,8 @@ class Token {
         this.description = p.description ?? "";
 
         this.radius = p.radius ?? 20;
-        this.position = p.position ?? {x: 0, y: 0};
-        this.originalPosition = this.position;
+        this.position = {x: p.position ? p.position.x : 0, y: p.position ? p.position.y : 0};
+        this.originalPosition = {x: this.position.x, y: this.position.y};
         this.snapInterval = p.snapInterval ?? 1;
 
         this.shape = p.shape ?? "circle";
@@ -69,15 +70,15 @@ class Token {
         this.zIndex = p.zIndex ?? 0;
 
         this.linkedSheet = p.linkedSheet ?? null;
-        this.linkedSheetAwait = p.linkedSheetAwait ?? {id: -1, name: ""};
+        this.linkedSheetAwait = {id: p.linkedSheetAwait ? p.linkedSheetAwait.id : -1, name: p.linkedSheetAwait ? p.linkedSheetAwait.name : ""};
         this.linkedImage = p.linkedImage ?? null;
-        this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
+        this.linkedImageAwait = {id: p.linkedImageAwait ? p.linkedImageAwait.id : -1, name: p.linkedImageAwait ? p.linkedImageAwait.name : ""};
 
         this.grabbingPlayer = p.grabbingPlayer ?? null;
         this.preventDefaultPosition = false;
         this.synced = p.synced ?? false;
         this.loaded = p.loaded ?? false;
-        if (this.synced) return;
+        if (this.synced || waitSync) return;
 
         this.sendToken();
     }
@@ -338,6 +339,8 @@ class Grid {
     }
 
     render() {
+        this.realDim = {x: this.radius * this.dim.x, y: this.radius * this.dim.y};
+        
         ctx.beginPath();
         ctx.save();
         ctx.translate(
@@ -458,6 +461,8 @@ class PlayerState {
         this.realMouseLocation = p.mouseLocation ?? {x: 0, y: 0};
         this.mouseColor = p.mouseColor ?? "red";
         this.inMenu = p.inMenu ?? false;
+        this.isHost = p.isHost ?? false;
+        this.tick = new Date().getTime();
     }
 
     lerpPosition() {
@@ -489,6 +494,7 @@ class Socket {
     constructor() {
         this.socket = null;
         this.connected = false;
+        this.pingsocket = false;
         this.inLobby = false;
     }
 
@@ -512,7 +518,11 @@ class Socket {
         if (this.inLobby) {
             console.log("Connection Lost");
             createPopup(
-                "Connection Lost", `You have been disconnected from this lobby due to problems on the server-side. All assets and maps have been automatically saved, and you will be brought back to the main menu.`, {type: 0},
+                "Connection Lost", `You have been disconnected from this lobby due to problems on the server-side. You may press "Save Map" To export the map and import it later.`, {type: 0},
+                "Save Map", function(e) {
+                    document.getElementById("exportMapButton").click();
+                    return false;
+                },
                 "Ok", function(e) {
                     document.getElementById("simulatorMenu").classList.add("hidden");
                     document.getElementById("frontMenu").classList.remove("hidden");
@@ -529,6 +539,7 @@ class Socket {
     }
 
     message(packet) {
+        if (this.pingsocket) return;
         let reader = new DataView(packet.data);
 
         switch (reader.getInt8(0)) {
@@ -661,12 +672,12 @@ class Socket {
             case protocol.client.basicUpdate: {
                 const d = decodePacket(reader, [
                     "int8",
-                    "repeat", "int32", "float32", "float32", "string", "int8", "end",
+                    "repeat", "int32", "float32", "float32", "string", "int8", "int8", "end",
                     "repeat", "int32", "string", "float32", "float32", "end",
                     "repeat", "int32", "string", "end"
                 ]);
                 // update player mouse positions
-                for (let i = 0; i < d[1].length; i += 5) {
+                for (let i = 0; i < d[1].length; i += 6) {
                     let other = null;
                     for (let player of psd.players) if (player.id === d[1][i + 0]) {other = player; break;}
                     if (other === null) {
@@ -674,13 +685,17 @@ class Socket {
                             id: d[1][i + 0],
                             mouseLocation: {x: d[1][i + 1], y: d[1][i + 2]},
                             mouseColor: d[1][i + 3],
-                            inMenu: d[1][i + 4],
+                            inMenu: !!d[1][i + 4],
+                            isHost: !!d[1][i + 5],
                         });
                         psd.players.push(other);
                     }
                     other.realMouseLocation = {x: d[1][i + 1], y: d[1][i + 2]};
                     other.mouseColor = d[1][i + 3];
                     other.inMenu = !!d[1][i + 4];
+                    other.isHost = !!d[1][i + 5];
+                    other.tick = new Date().getTime();
+                    if (psd.myId === other.id) psd.isHost = other.isHost;
                 }
                 // update token locations
                 for (let token of psd.tokens) {
@@ -761,7 +776,7 @@ class Socket {
     }
 
     open() {
-        console.log("Socket connected");
+        if (!this.pingsocket) console.log("Socket connected");
     }
 
     error(error) {
@@ -769,8 +784,8 @@ class Socket {
     }
 
     close(reason) {
-        console.log(`Socket closed for reason:`);
-        console.log(reason)
+        if (!this.pingsocket) console.log(`Socket closed for reason:`);
+        if (!this.pingsocket) console.log(reason)
         this.disconnect();
     }
 }
@@ -781,10 +796,12 @@ document.getElementById("loadingScreen").classList.add("hidden");
 
 // when dragging across the canvas, change the camera position
 doc.gameCanvas.addEventListener("mousedown", function(e) {
+    if (e.button === 2) return;
     if (psd.inMenu) {
         psd.inMenu = false;
         doc.tokenDataMenu.classList.add("hidden");
         doc.gridDataMenu.classList.add("hidden");
+        doc.saveStateMenu.classList.add("hidden");
         if (psd.currentEditObject === null) return;
         if (psd.currentEditObject.type === "token") psd.currentEditObject.extractFromTokenMenu();
         else if (psd.currentEditObject.type === "grid") psd.currentEditObject.extractFromGridMenu();
@@ -858,47 +875,28 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
     let clickOptions = [{
         name: "Create Token (testing)",
         function: function() {
-            if (!e.ctrlKey) {
-                psd.tokens.push(new Token({
-                    name: "Random Token",
-                    description: "Something cool goes here I think",
-                    position: {x: psd.cameraLocation.x, y: psd.cameraLocation.y},
-                    baseColor: randomColor(),
-                }));
-            }
-            else createPopup(
-                "Upload Image", "Upload an image for the token.",
-                {type: 2},
-                "Cancel", function(e) {return true},
-                "Upload", function(e) {
-                    const reader = new FileReader();
-                    reader.onload = function() {
-                        const img = new SavedImage({
-                            data: reader.result
-                        });
-                        psd.images.push(img);
-                        
-                        psd.tokens.push(new Token({
-                            name: "Random Token",
-                            description: "Something cool goes here I think",
-                            position: {x: psd.cameraLocation.x, y: psd.cameraLocation.y},
-                            baseColor: randomColor(),
-                            linkedImage: img,
-                        }));
-                    };
-                    reader.readAsDataURL(doc.popupMenuFileDrop.files[0]);
-                    return true;
-                }
-            );
+            psd.tokens.push(new Token({
+                name: "Random Token",
+                description: "Something cool goes here I think",
+                position: {x: psd.cameraLocation.x + e.clientX - W/2, y: psd.cameraLocation.y + e.clientY - H/2},
+                baseColor: randomColor(),
+            }));
         }
     }, {
         name: "Create Grid (testing)",
         function: function() {
             psd.grids.push(new Grid({
                 name: "Random Grid",
-                position: {x: psd.cameraLocation.x, y: psd.cameraLocation.y},
-                lineColor: randomColor(),
+                position: {x: psd.cameraLocation.x + e.clientX - W/2, y: psd.cameraLocation.y + e.clientY - H/2},
+                lineColor: "white",
             }));
+        }
+    }, {
+        name: "Export/Import Map",
+        function: function() {
+            doc.saveStateMenu.classList.remove("hidden");
+            psd.inMenu = true;
+            sendMouseUpdate(e);
         }
     }];
     for (let grid of psd.grids) {
@@ -908,6 +906,29 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                 name: "Edit Grid",
                 function: function() {
                     Grid.openEditMenu(e, grid);
+                }
+            });
+            break;
+        }
+    }
+    for (let token of psd.tokens) {
+        if (!token.loaded) continue;
+        if (token.checkDrag({
+            x: (e.clientX - W/2) / psd.cameraLocation.s + psd.cameraLocation.x,
+            y: (e.clientY - H/2) / psd.cameraLocation.s + psd.cameraLocation.y,
+        })) {
+            clickOptions.push({
+                name: "Duplicate Token",
+                function: function() {
+                    let t = new Token(token, true);
+                    t.synced = false;
+                    t.loaded = false;
+                    t.id = Math.floor(Math.random() * 2**31);
+                    t.color = randomColor();
+                    t.position.x += t.radius;
+                    t.position.y += t.radius;
+                    psd.tokens.push(t);
+                    t.sendToken();
                 }
             });
             break;
@@ -998,6 +1019,137 @@ document.getElementById("deleteGridButton").addEventListener("click", function(e
     sendMouseUpdate(e);
 });
 
+// export the map into a kmap file and store it away
+document.getElementById("exportMapButton").addEventListener("click", function(e) {
+    // organize our data
+    let data = {
+        requiredImages: [],
+        requiredTokens: [],
+        requiredGrids: [],
+    };
+    for (let t of psd.tokens) {
+        if (!t.loaded) continue;
+        if (t.linkedImage !== null) data.requiredImages.push({
+            type: t.linkedImage.type,
+            id: t.linkedImage.id,
+            name: t.linkedImage.name,
+            data: t.linkedImage.data
+        });
+        data.requiredTokens.push({
+            type: t.type,
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            radius: t.radius,
+            position: t.position,
+            originalPosition: t.position,
+            snapInterval: t.snapInterval,
+            shape: t.shape,
+            cropImage: t.cropImage,
+            baseColor: t.baseColor,
+            lineColor: t.lineColor,
+            lineWidth: t.lineWidth ,
+            zIndex: t.zIndex,
+            linkedSheetAwait: t.linkedSheet === null ? {id: -1, name: ""} : {id: t.linkedSheet.id, name: t.linkedSheet.name},
+            linkedImageAwait: t.linkedImage === null ? {id: -1, name: ""} : {id: t.linkedImage.id, name: t.linkedImage.name},
+            synced: true,
+        });
+    }
+    for (let g of psd.grids) {
+        if (!g.loaded) continue;
+        if (g.linkedImage !== null) data.requiredImages.push({
+            type: g.linkedImage.type,
+            id: g.linkedImage.id,
+            name: g.linkedImage.name,
+            data: g.linkedImage.data
+        });
+        data.requiredGrids.push({
+            type: g.type,
+            id: g.id,
+            name: g.name,
+            radius: g.radius,
+            dim: g.dim,
+            position: g.position,
+            realDim: g.realDim,
+            shape: g.shape,
+            lineColor: g.lineColor,
+            lineWidth: g.lineWidth,
+            zIndex: g.zIndex,
+            linkedImage: g.linkedImage,
+            linkedImageAwait: g.linkedImage === null ? {id: -1, name: ""} : {id: g.linkedImage.id, name: g.linkedImage.name},
+            synced: true,
+        });
+    }
+
+    data = JSON.stringify(data);
+    const blob = new Blob([data], { type: "text/plain" });
+    const fileURL = URL.createObjectURL(blob);
+    const downloadLink = document.createElement("a");
+    downloadLink.href = fileURL;
+    downloadLink.download = "unnamed.kmap";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    URL.revokeObjectURL(fileURL);
+});
+
+// imports a map from a kmap file
+document.getElementById("importMapFileDrop").addEventListener("change", function(e) {
+    if (!psd.isHost) {
+        alert("You must be host to import a map");
+        return;
+    }
+    if (document.getElementById("importMapFileDrop").files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function() {
+            try {
+                const data = JSON.parse(atob(reader.result.split("base64,")[1]));
+
+                for (let t of psd.tokens) t.loaded = false;
+                for (let g of psd.grids) g.loaded = false;
+                socket.talk(encodePacket([protocol.server.loadNewMap], ["int8"]));
+
+                for (let image of data.requiredImages) {
+                    if (findAsset(image.id, image.name) !== null) continue;
+                    psd.images.push(new SavedImage(image));
+                }
+
+                for (let t of data.requiredTokens) {
+                    let a = findAsset(t.id, t.name);
+                    if (a !== null) psd.tokens.splice(psd.tokens.indexOf(a), 1);
+                    a = new Token(t);
+                    if (a.linkedImageAwait.id !== -1) for (let image of psd.images) {
+                        if (a.linkedImageAwait.id === image.id && a.linkedImageAwait.name === image.name) a.linkedImage = image;
+                    }
+                    if (a.linkedSheetAwait.id !== -1) for (let sheet of psd.sheets) {
+                        if (a.linkedSheetAwait.id === sheet.id && a.linkedSheetAwait.name === sheet.name) a.linkedSheet = sheet;
+                    }
+                    psd.tokens.push(a);
+                    
+                    a.loaded = true;
+                    a.sendToken();
+                }
+
+                for (let g of data.requiredGrids) {
+                    let a = findAsset(g.id, g.name);
+                    if (a !== null) psd.grids.splice(psd.grids.indexOf(a), 1);
+                    a = new Grid(g);
+                    if (a.linkedImageAwait.id !== -1) for (let image of psd.images) {
+                        if (a.linkedImageAwait.id === image.id && a.linkedImageAwait.name === image.name) a.linkedImage = image;
+                    }
+                    psd.grids.push(a);
+                    
+                    a.loaded = true;
+                    a.sendGrid();
+                }
+            } catch(err) {
+                alert("The uploaded file is invalid");
+                console.log(err);
+            }
+        };
+        reader.readAsDataURL(document.getElementById("importMapFileDrop").files[0]);
+    }
+});
+
 /* Load saved input contents */
 function saveInput(input) {
     input.addEventListener("change", function(e) {
@@ -1076,7 +1228,22 @@ function update() {
         player.lerpPosition();
         player.renderMouse();
     }
+    for (let i = psd.players.length - 1; i >= 0; i--) {
+        if (new Date().getTime() - psd.players[i].tick > 1000) psd.players.splice(i, 1);
+    }
 
     requestAnimationFrame(update);
 }
 requestAnimationFrame(update);
+
+// for our render hosting, we need to do this to keep the project active
+function pingRender() {
+    let pingsocket = new Socket();
+    pingsocket.connect();
+    pingsocket.pingsocket = true;
+    setTimeout(function(e) {
+        pingsocket.disconnect();
+        pingsocket = null;
+    }, 1000);
+}
+setInterval(pingRender, 5 * 60 * 1000);

@@ -25,6 +25,7 @@ export const doc = {
     buildCanvas: document.getElementById("buildCanvas"),
     tokenDataMenu: document.getElementById("tokenDataMenu"),
     gridDataMenu: document.getElementById("gridDataMenu"),
+    saveStateMenu: document.getElementById("saveStateMenu"),
 }
 
 // basic data storage for characters, and the currently viewed character
@@ -45,6 +46,7 @@ export let psd = {
     images: [],
     sheets: [],
     myId: -1,
+    isHost: false,
     inMenu: false,
     currentEditObject: null
 };

@@ -1414,3 +1414,23 @@ span {
     resize: vertical;
     text-align: left;
 }
+
+/* The save state menu, for loading and importing/exporting maps and tokens */
+.saveStateMenu {
+    position: absolute;
+    left: 10vw;
+    top: 10vh;
+    width: 80vw;
+    height: 80vh;
+    background-color: var(--veryDarkGrey);
+    z-index: 5;
+}
+
+.exportMapButton {
+    position: relative;
+    margin-top: 2vh;
+    width: 70vw;
+    left: 5vw;
+    height: 5vh;
+    background-color: var(--veryDarkBlue);
+}

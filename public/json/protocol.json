@@ -28,6 +28,7 @@
         "tokenMoved": 10,
         "assetInquiry": 11,
         "gridCreated": 12,
-        "deleteObject": 13
+        "deleteObject": 13,
+        "loadNewMap": 14
     }
 }

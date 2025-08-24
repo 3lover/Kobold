@@ -233,7 +233,8 @@ class Lobby {
                 player.mouseLocation.x + player.cameraLocation.x,
                 player.mouseLocation.y + player.cameraLocation.y,
                 player.mouseColor,
-                player.inMenu ? 1 : 0
+                player.inMenu ? 1 : 0,
+                player.host ? 1 : 0,
             );
         }
         sending.push(0);
@@ -255,7 +256,7 @@ class Lobby {
         for (let player of this.players) {
             player.talk(ptools.encodePacket(sending, [
                 "int8",
-                "repeat", "int32", "float32", "float32", "string", "int8", "end",
+                "repeat", "int32", "float32", "float32", "string", "int8", "int8", "end",
                 "repeat", "int32", "string", "float32", "float32", "end",
                 "repeat", "int32", "string", "end"
             ]));
@@ -578,7 +579,6 @@ const sockets = {
                 }
                 // unloads and object
                 case protocol.server.deleteObject: {
-                    if (!this.playerLobby) return;
                     const d = ptools.decodePacket(reader, ["int8", "int32", "string"]);
                     const obj = this.playerLobby.findAssetById(d[1], d[2]);
                     if (obj === null) return;
@@ -597,6 +597,14 @@ const sockets = {
                             break;
                         }
                     }
+                    break;
+                }
+                case protocol.server.loadNewMap: {
+                    if (!this.playerLobby) return;
+                    if (!this.playerInstance.host) return;
+                    this.playerLobby.objects.tokens = [];
+                    this.playerLobby.objects.grids = [];
+                    console.log(`Lobby with code ${this.playerLobby.code} has imported a new map!`);
                     break;
                 }
                 default: {

@@ -17,7 +17,7 @@
       "express-minify": "latest"
     },
     "engines": {
-      "node": "v20.19.1", "npm": "v10.8.2"
+      "node": "16.x"
     },
     "keywords": []
   }

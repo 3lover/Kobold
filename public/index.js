@@ -91,6 +91,7 @@ class Token {
 
     // directly sends the token object to the server
     sendToken(oldid) {
+        console.log("sending with old id" + oldid)
         const tokenLayout = [
             /* 00 */ protocol.server.tokenCreated, "int8",
             /* 01 */ this.type, "string",
@@ -500,7 +501,7 @@ class Socket {
 
     connect() {
         if (this.socket !== null) return;
-        document.getElementById("reconnectPrompter").classList.remove("hidden");
+        if (!this.pingsocket) document.getElementById("reconnectPrompter").classList.remove("hidden");
         this.socket = new WebSocket("wss://" + location.host + "/wss");
         this.socket.binaryType = "arraybuffer";
         this.socket.onopen = () => this.open();
@@ -514,6 +515,7 @@ class Socket {
         this.socket.close();
         this.socket = null;
         this.connected = false;
+        if (this.pingsocket) return;
         document.getElementById("reconnectPrompter").classList.remove("hidden");
         if (this.inLobby) {
             console.log("Connection Lost");
@@ -805,6 +807,7 @@ doc.gameCanvas.addEventListener("mousedown", function(e) {
         if (psd.currentEditObject === null) return;
         if (psd.currentEditObject.type === "token") psd.currentEditObject.extractFromTokenMenu();
         else if (psd.currentEditObject.type === "grid") psd.currentEditObject.extractFromGridMenu();
+        psd.currentEditObject = null;
         sendMouseUpdate(e);
         return;
     }
@@ -878,7 +881,10 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
             psd.tokens.push(new Token({
                 name: "Random Token",
                 description: "Something cool goes here I think",
-                position: {x: psd.cameraLocation.x + e.clientX - W/2, y: psd.cameraLocation.y + e.clientY - H/2},
+                position: {
+                    x: psd.cameraLocation.x + (e.clientX - W/2) / psd.cameraLocation.s,
+                    y: psd.cameraLocation.y + (e.clientY - H/2) / psd.cameraLocation.s
+                },
                 baseColor: randomColor(),
             }));
         }
@@ -887,7 +893,10 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
         function: function() {
             psd.grids.push(new Grid({
                 name: "Random Grid",
-                position: {x: psd.cameraLocation.x + e.clientX - W/2, y: psd.cameraLocation.y + e.clientY - H/2},
+                position: {
+                    x: psd.cameraLocation.x + (e.clientX - W/2) / psd.cameraLocation.s,
+                    y: psd.cameraLocation.y + (e.clientY - H/2) / psd.cameraLocation.s
+                },
                 lineColor: "white",
             }));
         }
@@ -917,6 +926,7 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
             x: (e.clientX - W/2) / psd.cameraLocation.s + psd.cameraLocation.x,
             y: (e.clientY - H/2) / psd.cameraLocation.s + psd.cameraLocation.y,
         })) {
+            clickOptions = [];
             clickOptions.push({
                 name: "Duplicate Token",
                 function: function() {
@@ -929,6 +939,12 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                     t.position.y += t.radius;
                     psd.tokens.push(t);
                     t.sendToken();
+                }
+            });
+            clickOptions.push({
+                name: "Edit Token",
+                function: function() {
+                    Token.openEditMenu(e, token);
                 }
             });
             break;
@@ -1006,6 +1022,7 @@ document.getElementById("deleteTokenButton").addEventListener("click", function(
     if (psd.currentEditObject === null || psd.currentEditObject.type !== "token") return;
     psd.currentEditObject.delete();
     psd.inMenu = false;
+    psd.currentEditObject = null;
     doc.tokenDataMenu.classList.add("hidden");
     sendMouseUpdate(e);
 });
@@ -1015,6 +1032,7 @@ document.getElementById("deleteGridButton").addEventListener("click", function(e
     if (psd.currentEditObject === null || psd.currentEditObject.type !== "grid") return;
     psd.currentEditObject.delete();
     psd.inMenu = false;
+    psd.currentEditObject = null;
     doc.gridDataMenu.classList.add("hidden");
     sendMouseUpdate(e);
 });
@@ -1141,6 +1159,7 @@ document.getElementById("importMapFileDrop").addEventListener("change", function
                     a.loaded = true;
                     a.sendGrid();
                 }
+                console.log("donsies")
             } catch(err) {
                 alert("The uploaded file is invalid");
                 console.log(err);
@@ -1207,11 +1226,6 @@ function update() {
         if (!grid.loaded) continue;
         grid.render();
     }
-    ctx.beginPath();
-    ctx.strokeStyle = "yellow";
-    ctx.lineWidth = 1;
-    ctx.arc(W/2, H/2, 5, 0, Math.PI * 2);
-    ctx.stroke();
 
     // draw every token by their z-index
     psd.tokens = psd.tokens.sort(function(a, b) {
@@ -1239,8 +1253,8 @@ requestAnimationFrame(update);
 // for our render hosting, we need to do this to keep the project active
 function pingRender() {
     let pingsocket = new Socket();
-    pingsocket.connect();
     pingsocket.pingsocket = true;
+    pingsocket.connect();
     setTimeout(function(e) {
         pingsocket.disconnect();
         pingsocket = null;

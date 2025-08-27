@@ -873,8 +873,14 @@ function sendMouseUpdate(e) {
 }
 doc.gameCanvas.addEventListener("mousemove", sendMouseUpdate);
 
+
 /* Sense where a player right clicks, and add menu options accordingly */
 doc.gameCanvas.addEventListener("contextmenu", function(e) {
+    if ((psd.clickCombo[1] - e.clientX) ** 2 + (psd.clickCombo[2] - e.clientY) ** 2 < 16) psd.clickCombo[0]++;
+    else psd.clickCombo[0] = 0;
+    psd.clickCombo[1] = e.clientX;
+    psd.clickCombo[2] = e.clientY;
+
     let clickOptions = [{
         name: "Create Token (testing)",
         function: function() {
@@ -908,29 +914,41 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
             sendMouseUpdate(e);
         }
     }];
-    for (let grid of psd.grids) {
+
+    let found = 0;
+    for (let i = psd.grids.length - 1; i >= 0; i--) {
+        let grid = psd.grids[i];
         if (!grid.loaded) continue;
         if (grid.inside({x: e.clientX + psd.cameraLocation.x - W/2, y: e.clientY + psd.cameraLocation.y - H/2})) {
+            found++;
+            if (found !== psd.clickCombo[0] + 1) continue;
+
             clickOptions.push({
-                name: "Edit Grid",
+                name: found === 1 ? `Edit Grid` : `Edit Grid (${grid.name.length > 10 ? `${grid.name.substring(0, 7)}...` : grid.name})`,
                 function: function() {
-                    Grid.openEditMenu(e, grid);
+                    Grid.openEditMenu(e, psd.grids[i]);
                 }
             });
             break;
         }
     }
-    for (let token of psd.tokens) {
+
+    found = 0;
+    for (let i = psd.tokens.length - 1; i >= 0; i--) {
+        let token = psd.tokens[i];
         if (!token.loaded) continue;
         if (token.checkDrag({
             x: (e.clientX - W/2) / psd.cameraLocation.s + psd.cameraLocation.x,
             y: (e.clientY - H/2) / psd.cameraLocation.s + psd.cameraLocation.y,
         })) {
+            found++;
+            if (found !== psd.clickCombo[0] + 1) continue;
+
             clickOptions = [];
             clickOptions.push({
-                name: "Duplicate Token",
+                name: found === 1 ? `Duplicate Token` : `Duplicate Token (${token.name.length > 10 ? `${token.name.substring(0, 7)}...` : token.name})`,
                 function: function() {
-                    let t = new Token(token, true);
+                    let t = new Token(psd.tokens[i], true);
                     t.synced = false;
                     t.loaded = false;
                     t.id = Math.floor(Math.random() * 2**31);
@@ -942,9 +960,9 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                 }
             });
             clickOptions.push({
-                name: "Edit Token",
+                name: found === 1 ? `Edit Token` : `Edit Token (${token.name.length > 10 ? `${token.name.substring(0, 7)}...` : token.name})`,
                 function: function() {
-                    Token.openEditMenu(e, token);
+                    Token.openEditMenu(e, psd.tokens[i]);
                 }
             });
             break;

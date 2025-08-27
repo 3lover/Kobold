@@ -162,22 +162,25 @@ span {
 
 /* The custom context menu, which follows the mouse and is show and frozen on right click */
 #contextMenu {
-    background-color: var(--grey);
+    background-color: var(--darkGrey);
     height: auto;
     width: auto;
     position: absolute;
     z-index: 10000;
     transition: 0s;
+    pointer-events: none;
 }
 
 .contextMenuButton {
+    pointer-events: auto;
     background-color: var(--grey);
     position: relative;
     font-size: 2vh;
     height: 5vh;
     width: max-content;
-    min-width: 100%;
+    min-width: calc(100% - 3vmin);
     padding: 0 1vmin 0 1vmin;
+    margin-left: 3vmin;
 }
 .contextMenuButton:hover {
     background-color: var(--lightGrey);

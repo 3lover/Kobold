@@ -48,7 +48,8 @@ export let psd = {
     myId: -1,
     isHost: false,
     inMenu: false,
-    currentEditObject: null
+    currentEditObject: null,
+    clickCombo: [0, 0, 0]
 };
 
 if (localStorage.getItem("psd")) psd = JSON.parse(localStorage.getItem("psd"));
@@ -163,13 +164,15 @@ document.addEventListener("click", closeAllSelect);
 
 // the right click event, which opens the context menu on an item if applicable, or otherwise starts an event
 document.addEventListener("contextmenu", function(e) {
-    doc.contextMenu.style.left = `${e.clientX - 3}px`;
-    doc.contextMenu.style.top = `${e.clientY - 3}px`;
+    doc.contextMenu.style.left = `calc(${e.clientX}px - 1.5vmin)`;
+    doc.contextMenu.style.top = `calc(${e.clientY}px - 1.5vmin)`;
     doc.contextMenu.classList.remove("hidden");
 });
 
 // if the context menu is moved off of, it is hidden
-doc.contextMenu.addEventListener("mouseleave", function(e) {
+document.addEventListener("mousemove", function(e) {
+    let bounds = doc.contextMenu.getBoundingClientRect();
+    if (doc.contextMenu.classList.contains("hidden") || (e.clientX < bounds.right && e.clientX > bounds.left && e.clientY > bounds.top && e.clientY < bounds.bottom)) return;
     doc.contextMenu.classList.add("hidden");
     while (doc.contextMenu.children.length > 0) doc.contextMenu.lastChild.remove();
 });

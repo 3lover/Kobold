@@ -15,8 +15,8 @@ function resize() {
 }
 setInterval(resize, 200);
 
-let ctx = doc.gameCanvas.getContext("2d");
-ctx.lineCap = "round";
+let mctx = doc.gameCanvas.getContext("2d");
+mctx.lineCap = "round";
 let buildctx = doc.buildCanvas.getContext("2d");
 buildctx.lineCap = "round";
 
@@ -73,6 +73,7 @@ class Token {
         this.linkedSheetAwait = {id: p.linkedSheetAwait ? p.linkedSheetAwait.id : -1, name: p.linkedSheetAwait ? p.linkedSheetAwait.name : ""};
         this.linkedImage = p.linkedImage ?? null;
         this.linkedImageAwait = {id: p.linkedImageAwait ? p.linkedImageAwait.id : -1, name: p.linkedImageAwait ? p.linkedImageAwait.name : ""};
+        this.removingLinked = false;
 
         this.grabbingPlayer = p.grabbingPlayer ?? null;
         this.preventDefaultPosition = false;
@@ -123,16 +124,17 @@ class Token {
         }
     }
 
-    render() {
+    render(ctx = mctx, showcase = false, extras = {}) {
         ctx.save();
         if (!this.synced) ctx.globalAlpha = 0.4;
-        //if (this.preventDefaultPosition) ctx.globalAlpha = 0.7;
-        ctx.translate(
+        if (!showcase) ctx.translate(
             (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
             (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
         );
+        else ctx.translate(extras.radius, extras.radius);
         
         ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
+        if (showcase) ctx.lineWidth = extras.radius * this.lineWidth / this.radius;
 
         // draw the color of the grabber in the background if needed
         if (this.grabbingPlayer !== null) {
@@ -148,7 +150,10 @@ class Token {
 
         // draw the base token
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius * psd.cameraLocation.s * (this.grabbingPlayer === null ? 1 : 0.7), 0, Math.PI * 2);
+        let radius = this.radius * psd.cameraLocation.s;
+        let rmod = (this.grabbingPlayer === null ? 1 : 0.7);
+        if (showcase) radius = extras.radius;
+        ctx.arc(0, 0, radius * rmod, 0, Math.PI * 2);
         ctx.fillStyle = fetchColor(this.baseColor);
         ctx.strokeStyle = fetchColor(this.lineColor);
         ctx.fill();
@@ -158,13 +163,13 @@ class Token {
         if (this.linkedImage && this.linkedImage.drawableObject.complete) {
             buildctx.clearRect(0, 0, W, H);
             buildctx.beginPath();
-            buildctx.arc(this.radius * psd.cameraLocation.s, this.radius * psd.cameraLocation.s, this.radius * psd.cameraLocation.s, 0, Math.PI * 2);
+            buildctx.arc(radius * rmod, radius * rmod, radius * rmod, 0, Math.PI * 2);
             buildctx.fill();
             buildctx.globalCompositeOperation = "source-in";
-            buildctx.drawImage(this.linkedImage.drawableObject, 0, 0, this.radius * 2 * psd.cameraLocation.s, this.radius * 2 * psd.cameraLocation.s);
+            buildctx.drawImage(this.linkedImage.drawableObject, 0, 0, radius * 2  * rmod, radius * 2 * rmod);
             buildctx.globalCompositeOperation = "source-over";
 
-            ctx.drawImage(buildCanvas, -this.radius * psd.cameraLocation.s, -this.radius * psd.cameraLocation.s);
+            ctx.drawImage(buildCanvas, -radius * rmod, -radius * rmod);
         }
         ctx.restore();
     }
@@ -233,11 +238,29 @@ class Token {
 
     // uses the update menu's data to update this token
     extractFromTokenMenu() {
+        // if nothing changed, just ignore everything.
+        if (
+            this.name === sanitize(document.getElementById("tokenNameInput").value, "string", {max: 32, default: "Unnamed Token"}) &&
+            this.description === sanitize(document.getElementById("tokenDescriptionInput").value, "string", {max: 1000, default: ""}) &&
+            this.radius === sanitize(document.getElementById("tokenRadiusInput").value, "float", {min: 1, max: 1000, default: 20}) &&
+            this.lineWidth === sanitize(document.getElementById("tokenBorderRadiusInput").value, "float", {min: 0, max: 1000, default: 5}) &&
+            this.zIndex === sanitize(document.getElementById("tokenZIndexInput").value, "float", {min: -1000, max: 1000, default: 0}) &&
+            this.snapInterval === sanitize(document.getElementById("tokenGridSnapInput").value, "float", {min: 0.1, max: 1000, default: 1}) &&
+            this.baseColor === sanitize(document.getElementById("tokenColorInput").value, "color", {default: "red"}) &&
+            this.lineColor === sanitize(document.getElementById("tokenBorderColorInput").value, "color", {default: "white"}) &&
+            this.lineColor === sanitize(document.getElementById("tokenBorderColorInput").value, "color", {default: "white"}) &&
+            this.shape === sanitize(document.getElementById("tokenShapeInput").value, "option", {valid: ["circle", "square"], default: "circle"}) &&
+            document.getElementById("tokenImageFileDrop").files.length <= 0 &&
+            !this.removingLinked
+        ) return;
+
         let clone = new Token(this);
         clone.loaded = false;
         psd.tokens.push(clone);
         
         this.id = Math.floor(Math.random() * 2**31);
+        if (this.removingLinked) this.linkedImage = null;
+        this.removingLinked = false;
         this.name = sanitize(document.getElementById("tokenNameInput").value, "string", {max: 32, default: "Unnamed Token"});
         this.description = sanitize(document.getElementById("tokenDescriptionInput").value, "string", {max: 1000, default: ""});
         this.radius = sanitize(document.getElementById("tokenRadiusInput").value, "float", {min: 1, max: 1000, default: 20});
@@ -277,7 +300,7 @@ class Token {
 }
 
 class Grid {
-    constructor(p) {
+    constructor(p, waitSync) {
         this.type = p.type ?? "grid";
         this.id = p.id ?? Math.floor(Math.random() * 2**31);
 
@@ -295,10 +318,11 @@ class Grid {
 
         this.linkedImage = p.linkedImage ?? null;
         this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
+        this.removingLinked = false;
 
         this.synced = p.synced ?? false;
         this.loaded = p.loaded ?? false;
-        if (this.synced) return;
+        if (this.synced || waitSync) return;
 
         this.sendGrid();
     }
@@ -339,35 +363,45 @@ class Grid {
         }
     }
 
-    render() {
+    render(ctx = mctx, showcase = false, extras = {}) {
         this.realDim = {x: this.radius * this.dim.x, y: this.radius * this.dim.y};
         
         ctx.beginPath();
         ctx.save();
-        ctx.translate(
+        if (!showcase) ctx.translate(
             (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
             (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
         );
-        ctx.translate(-(this.radius * this.dim.x / 2) * psd.cameraLocation.s, -(this.radius * this.dim.y / 2) * psd.cameraLocation.s);
+        else ctx.translate(extras.radius, extras.radius);
+
+        
+        let radius = {x: (this.realDim.x / 2) * psd.cameraLocation.s, y: (this.realDim.y / 2) * psd.cameraLocation.s};
+        if (showcase) radius = {x: extras.radius, y: extras.radius};
+        ctx.translate(-radius.x, -radius.y);
         ctx.strokeStyle = fetchColor(this.lineColor);
-        ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
+        if (!showcase) ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
+        else ctx.lineWidth = extras.radius * this.lineWidth / this.realDim.x;
         
         // draw the linked image, if one exists
+        radius = this.realDim.x * psd.cameraLocation.s;
+        if (showcase) radius = extras.radius * 2;
         if (this.linkedImage && this.linkedImage.drawableObject.complete) {
             ctx.beginPath();
             let ratio = this.linkedImage.drawableObject.height / this.linkedImage.drawableObject.width;
-            ctx.drawImage(this.linkedImage.drawableObject, 0, 0, this.realDim.x * psd.cameraLocation.s, this.realDim.x * psd.cameraLocation.s * ratio);
+            ctx.drawImage(this.linkedImage.drawableObject, 0, 0, radius, radius * ratio);
         }
         
         switch (this.shape) {
             case "square": {
+                radius = this.radius;
+                if (showcase) radius = extras.radius * 2 / this.dim.x;
                 for (let i = 0; i < this.dim.x + 1; i++) {
-                    ctx.moveTo(this.radius * i * psd.cameraLocation.s, 0);
-                    ctx.lineTo(this.radius * i * psd.cameraLocation.s, this.radius * this.dim.y * psd.cameraLocation.s);
+                    ctx.moveTo(radius * i * psd.cameraLocation.s, 0);
+                    ctx.lineTo(radius * i * psd.cameraLocation.s, radius * this.dim.y * psd.cameraLocation.s);
                 }
                 for (let i = 0; i < this.dim.y + 1; i++) {
-                    ctx.moveTo(0, this.radius * i * psd.cameraLocation.s);
-                    ctx.lineTo(this.radius * this.dim.x * psd.cameraLocation.s, this.radius * i * psd.cameraLocation.s);
+                    ctx.moveTo(0, radius * i * psd.cameraLocation.s);
+                    ctx.lineTo(radius * this.dim.x * psd.cameraLocation.s, radius * i * psd.cameraLocation.s);
                 }
                 if (this.lineWidth > 0) ctx.stroke();
                 break;
@@ -409,11 +443,29 @@ class Grid {
 
     // uses the update menu's data to update this token
     extractFromGridMenu() {
+        // if nothing changed ignore the extraction
+        if (
+            this.name === sanitize(document.getElementById("gridNameInput").value, "string", {max: 32, default: "Unnamed Grid"}) &&
+            this.radius === sanitize(document.getElementById("gridRadiusInput").value, "float", {min: 1, max: 1000, default: 50}) &&
+            this.dim.x === sanitize(document.getElementById("gridXDimInput").value, "float", {min: 1, max: 1000, default: 10}) &&
+            this.dim.y === sanitize(document.getElementById("gridYDimInput").value, "float", {min: 1, max: 1000, default: 10}) &&
+            this.position.x === sanitize(document.getElementById("gridXPosInput").value, "float", {min: -1000000, max: 1000000, default: 0}) &&
+            this.position.y === sanitize(document.getElementById("gridYPosInput").value, "float", {min: -1000000, max: 1000000, default: 0}) &&
+            this.lineWidth === sanitize(document.getElementById("gridLineWidthInput").value, "float", {min: 0, max: 1000, default: 2}) &&
+            this.lineColor === sanitize(document.getElementById("gridLineColorInput").value, "color", {default: "white"}) &&
+            this.zIndex === sanitize(document.getElementById("gridZIndexInput").value, "float", {min: -1000, max: 1000, default: 0}) &&
+            this.shape === sanitize(document.getElementById("gridShapeInput").value, "option", {valid: ["hexagon", "square"], default: "square"}) &&
+            document.getElementById("gridImageFileDrop").files.length <= 0 &&
+            !this.removingLinked
+        ) return;
+
         let clone = new Grid(this);
         clone.loaded = false;
         psd.grids.push(clone);
         
         this.id = Math.floor(Math.random() * 2**31);
+        if (this.removingLinked) this.linkedImage = null;
+        this.removingLinked = false;
         this.name = sanitize(document.getElementById("gridNameInput").value, "string", {max: 32, default: "Unnamed Grid"});
         this.radius = sanitize(document.getElementById("gridRadiusInput").value, "float", {min: 1, max: 1000, default: 50});
         this.dim.x = sanitize(document.getElementById("gridXDimInput").value, "float", {min: 1, max: 1000, default: 10});
@@ -471,7 +523,7 @@ class PlayerState {
         this.mouseLocation.y = lerp(this.mouseLocation.y, this.realMouseLocation.y, 0.6);
     }
 
-    renderMouse() {
+    renderMouse(ctx = mctx) {
         ctx.beginPath();
         ctx.arc(
             (this.mouseLocation.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
@@ -497,10 +549,15 @@ class Socket {
         this.connected = false;
         this.pingsocket = false;
         this.inLobby = false;
+        this.recoveredMapData = "";
+        this.id = Math.random();
     }
 
     connect() {
-        if (this.socket !== null) return;
+        if (this.socket !== null) {
+            document.getElementById("reconnectPrompter").classList.add("hidden");
+            return;
+        }
         if (!this.pingsocket) document.getElementById("reconnectPrompter").classList.remove("hidden");
         this.socket = new WebSocket("wss://" + location.host + "/wss");
         this.socket.binaryType = "arraybuffer";
@@ -525,10 +582,8 @@ class Socket {
                     document.getElementById("exportMapButton").click();
                     return false;
                 },
-                "Ok", function(e) {
-                    document.getElementById("simulatorMenu").classList.add("hidden");
-                    document.getElementById("frontMenu").classList.remove("hidden");
-                    socket.inLobby = false;
+                "Reconnect", function(e) {
+                    socket.connect();
                     return true;
                 },
             );
@@ -590,6 +645,17 @@ class Socket {
                 this.inLobby = true;
                 psd.myId = d[2];
                 console.log(`Successfully connected to lobby with code ${d[1]}.`);
+                if (this.recoveredMapData) {
+                    createPopup(
+                        "Restore Map?", `Do you want to restore the map from before the disconnect?`, {type: 0},
+                        "Yes", function(e) {
+                            importFromData(JSON.parse(socket.recoveredMapData));
+                            return true;
+                        },
+                        "No", function(e) {return true}
+                    );
+                }
+                sendMouseUpdate({clientX: W/2, clientY: H/2});
                 break;
             }
             // the server is asking if we own the needed assets and if we don't own any, we request them
@@ -779,6 +845,25 @@ class Socket {
 
     open() {
         if (!this.pingsocket) console.log("Socket connected");
+        if (this.inLobby) {
+            if (psd.joined) {
+                socket.talk(encodePacket([
+                    protocol.server.joinLobby,
+                    document.getElementById("frontJoinGameNameInput").value,
+                    document.getElementById("frontJoinGameCodeInput").value,
+                    socket.id
+                ], ["int8", "string", "string", "float32"]));
+            }
+            else {
+                socket.talk(encodePacket([
+                    protocol.server.createLobby,
+                    document.getElementById("frontCreateGameNameInput").value,
+                    document.getElementById("frontCreateGameCodeInput").value,
+                    socket.id
+                ], ["int8", "string", "string", "float32"]));
+                this.recoveredMapData = exportMapData();
+            }
+        }
     }
 
     error(error) {
@@ -911,6 +996,61 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
         function: function() {
             doc.saveStateMenu.classList.remove("hidden");
             psd.inMenu = true;
+            // create the saved object listings
+            while (document.getElementById("saveStateObjectHoldingMenu").children.length > 0) {
+                document.getElementById("saveStateObjectHoldingMenu").lastChild.remove();
+            }
+            let objList = psd.tokens.concat(psd.grids);
+            for (let o of objList) {
+                let holder = document.createElement("div");
+                holder.classList.add("saveStateObjectHolder");
+
+                // add a render
+                let drawing = document.createElement("canvas");
+                drawing.classList.add("saveStateObjectHolderCanvas");
+                drawing.width = H/2;
+                drawing.height = H/2;
+                o.render(drawing.getContext("2d"), true, {radius: H/4});
+                holder.appendChild(drawing);
+
+                // add the name
+                let text = document.createElement("p");
+                text.classList.add("saveStateObjectHolderText");
+                text.innerText = o.name.length > 20 ? `${o.name.substring(0, 20)}...` : o.name;
+                holder.appendChild(text);
+
+                // when clicked, spawn that object in
+                holder.addEventListener("click", function(e2) {
+                    if (o.type === "token") {
+                        let t = new Token(o, true);
+                        t.synced = false;
+                        t.loaded = false;
+                        t.id = Math.floor(Math.random() * 2**31);
+                        t.position = {
+                            x: psd.cameraLocation.x + (e.clientX - W/2) / psd.cameraLocation.s,
+                            y: psd.cameraLocation.y + (e.clientY - H/2) / psd.cameraLocation.s
+                        };
+                        psd.tokens.push(t);
+                        t.sendToken();
+                    } else if (o.type === "grid") {
+                        let g = new Grid(o, true);
+                        g.synced = false;
+                        g.loaded = false;
+                        g.id = Math.floor(Math.random() * 2**31);
+                        g.position = {
+                            x: psd.cameraLocation.x + (e.clientX - W/2) / psd.cameraLocation.s,
+                            y: psd.cameraLocation.y + (e.clientY - H/2) / psd.cameraLocation.s
+                        };
+                        psd.grids.push(g);
+                        g.sendGrid();
+                    }
+                    doc.saveStateMenu.classList.add("hidden");
+                    psd.currentEditObject = null;
+                    psd.inMenu = false;
+                });
+
+                document.getElementById("saveStateObjectHoldingMenu").appendChild(holder);
+            }
             sendMouseUpdate(e);
         }
     }];
@@ -952,7 +1092,6 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                     t.synced = false;
                     t.loaded = false;
                     t.id = Math.floor(Math.random() * 2**31);
-                    t.color = randomColor();
                     t.position.x += t.radius;
                     t.position.y += t.radius;
                     psd.tokens.push(t);
@@ -993,11 +1132,13 @@ document.getElementById("frontCreateGameReturn").addEventListener("click", funct
 });
 
 document.getElementById("frontCreateGameCreateButton").addEventListener("click", function(e) {
+    psd.joined = false;
     socket.talk(encodePacket([
         protocol.server.createLobby,
         document.getElementById("frontCreateGameNameInput").value,
         document.getElementById("frontCreateGameCodeInput").value,
-    ], ["int8", "string", "string"]));
+        socket.id
+    ], ["int8", "string", "string", "float32"]));
 });
 
 // join game buttons
@@ -1006,11 +1147,13 @@ document.getElementById("frontJoinGameReturn").addEventListener("click", functio
 });
 
 document.getElementById("frontJoinGameJoinButton").addEventListener("click", function(e) {
+    psd.joined = true;
     socket.talk(encodePacket([
         protocol.server.joinLobby,
         document.getElementById("frontJoinGameNameInput").value,
         document.getElementById("frontJoinGameCodeInput").value,
-    ], ["int8", "string", "string"]));
+        socket.id
+    ], ["int8", "string", "string", "float32"]));
 });
 
 
@@ -1022,7 +1165,7 @@ document.getElementById("reconnectPrompter").addEventListener("click", function(
 // the token menu remove image button
 document.getElementById("tokenRemoveReferenceImageButton").addEventListener("click", function(e) {
     if (psd.currentEditObject === null || psd.currentEditObject.type !== "token") return;
-    psd.currentEditObject.linkedImage = null;
+    psd.currentEditObject.removingLinked = true;
     document.getElementById("tokenImageFileDropLabel").innerText = "Click to Upload a File";
     document.getElementById("tokenImageFileDrop").value = "";
 });
@@ -1030,7 +1173,7 @@ document.getElementById("tokenRemoveReferenceImageButton").addEventListener("cli
 // the grid menu remove image button
 document.getElementById("gridRemoveReferenceImageButton").addEventListener("click", function(e) {
     if (psd.currentEditObject === null || psd.currentEditObject.type !== "grid") return;
-    psd.currentEditObject.linkedImage = null;
+    psd.currentEditObject.removingLinked = true;
     document.getElementById("gridImageFileDropLabel").innerText = "Click to Upload a File";
     document.getElementById("gridImageFileDrop").value = "";
 });
@@ -1056,7 +1199,7 @@ document.getElementById("deleteGridButton").addEventListener("click", function(e
 });
 
 // export the map into a kmap file and store it away
-document.getElementById("exportMapButton").addEventListener("click", function(e) {
+function exportMapData() {
     // organize our data
     let data = {
         requiredImages: [],
@@ -1118,6 +1261,11 @@ document.getElementById("exportMapButton").addEventListener("click", function(e)
     }
 
     data = JSON.stringify(data);
+    return data;
+}
+document.getElementById("exportMapButton").addEventListener("click", function(e) {
+    let data = exportMapData();
+    
     const blob = new Blob([data], { type: "text/plain" });
     const fileURL = URL.createObjectURL(blob);
     const downloadLink = document.createElement("a");
@@ -1129,6 +1277,45 @@ document.getElementById("exportMapButton").addEventListener("click", function(e)
 });
 
 // imports a map from a kmap file
+function importFromData(data) {
+    for (let t of psd.tokens) t.loaded = false;
+    for (let g of psd.grids) g.loaded = false;
+    socket.talk(encodePacket([protocol.server.loadNewMap], ["int8"]));
+
+    for (let image of data.requiredImages) {
+        if (findAsset(image.id, image.name) !== null) continue;
+        psd.images.push(new SavedImage(image));
+    }
+
+    for (let t of data.requiredTokens) {
+        let a = findAsset(t.id, t.name);
+        if (a !== null) psd.tokens.splice(psd.tokens.indexOf(a), 1);
+        a = new Token(t);
+        if (a.linkedImageAwait.id !== -1) for (let image of psd.images) {
+            if (a.linkedImageAwait.id === image.id && a.linkedImageAwait.name === image.name) a.linkedImage = image;
+        }
+        if (a.linkedSheetAwait.id !== -1) for (let sheet of psd.sheets) {
+            if (a.linkedSheetAwait.id === sheet.id && a.linkedSheetAwait.name === sheet.name) a.linkedSheet = sheet;
+        }
+        psd.tokens.push(a);
+        
+        a.loaded = true;
+        a.sendToken();
+    }
+
+    for (let g of data.requiredGrids) {
+        let a = findAsset(g.id, g.name);
+        if (a !== null) psd.grids.splice(psd.grids.indexOf(a), 1);
+        a = new Grid(g);
+        if (a.linkedImageAwait.id !== -1) for (let image of psd.images) {
+            if (a.linkedImageAwait.id === image.id && a.linkedImageAwait.name === image.name) a.linkedImage = image;
+        }
+        psd.grids.push(a);
+        
+        a.loaded = true;
+        a.sendGrid();
+    }
+}
 document.getElementById("importMapFileDrop").addEventListener("change", function(e) {
     if (!psd.isHost) {
         alert("You must be host to import a map");
@@ -1139,45 +1326,7 @@ document.getElementById("importMapFileDrop").addEventListener("change", function
         reader.onload = function() {
             try {
                 const data = JSON.parse(atob(reader.result.split("base64,")[1]));
-
-                for (let t of psd.tokens) t.loaded = false;
-                for (let g of psd.grids) g.loaded = false;
-                socket.talk(encodePacket([protocol.server.loadNewMap], ["int8"]));
-
-                for (let image of data.requiredImages) {
-                    if (findAsset(image.id, image.name) !== null) continue;
-                    psd.images.push(new SavedImage(image));
-                }
-
-                for (let t of data.requiredTokens) {
-                    let a = findAsset(t.id, t.name);
-                    if (a !== null) psd.tokens.splice(psd.tokens.indexOf(a), 1);
-                    a = new Token(t);
-                    if (a.linkedImageAwait.id !== -1) for (let image of psd.images) {
-                        if (a.linkedImageAwait.id === image.id && a.linkedImageAwait.name === image.name) a.linkedImage = image;
-                    }
-                    if (a.linkedSheetAwait.id !== -1) for (let sheet of psd.sheets) {
-                        if (a.linkedSheetAwait.id === sheet.id && a.linkedSheetAwait.name === sheet.name) a.linkedSheet = sheet;
-                    }
-                    psd.tokens.push(a);
-                    
-                    a.loaded = true;
-                    a.sendToken();
-                }
-
-                for (let g of data.requiredGrids) {
-                    let a = findAsset(g.id, g.name);
-                    if (a !== null) psd.grids.splice(psd.grids.indexOf(a), 1);
-                    a = new Grid(g);
-                    if (a.linkedImageAwait.id !== -1) for (let image of psd.images) {
-                        if (a.linkedImageAwait.id === image.id && a.linkedImageAwait.name === image.name) a.linkedImage = image;
-                    }
-                    psd.grids.push(a);
-                    
-                    a.loaded = true;
-                    a.sendGrid();
-                }
-                console.log("donsies")
+                importFromData(data);
             } catch(err) {
                 alert("The uploaded file is invalid");
                 console.log(err);
@@ -1234,7 +1383,7 @@ function update() {
     }
 
     // begin rendering
-    ctx.clearRect(0, 0, W, H);
+    mctx.clearRect(0, 0, W, H);
 
     // draw every grid by their z-index
     psd.grids = psd.grids.sort(function(a, b) {
@@ -1252,7 +1401,6 @@ function update() {
     for (let token of psd.tokens) {
         if (!token.loaded) continue;
         token.render();
-        ctx.globalAlpha = 1;
     }
 
     // finally, draw player's mouses over everything

@@ -193,6 +193,11 @@ class Lobby {
         this.players.push(player);
         console.log(`${player.name} has joined ${this.code}`);
 
+        if (player.socket.id === this.host.socket.id) {
+            player.host = true;
+            this.host = player;
+        }
+
         player.talk(ptools.encodePacket([protocol.client.successfulLobbyRequest, this.code, player.id], ["int8", "string", "int32"]));
 
         this.checkAssets();
@@ -202,8 +207,6 @@ class Lobby {
     removePlayer(player) {
         if (this.players.indexOf(player) !== -1) {
             this.players.splice(this.players.indexOf(player), 1);
-            //! later do something about if a DM disconnects
-            //if (player.host) this.massMessage([protocol.]);
             if (this.players.length <= 0) this.deleteLobby("no players");
             console.log(`${player.name} has left ${this.code}`);
         }
@@ -453,12 +456,13 @@ const sockets = {
 
                     if (this.playerLobby !== null) return;
 
-                    const d = ptools.decodePacket(reader, ["int8", "string", "string"]);
+                    const d = ptools.decodePacket(reader, ["int8", "string", "string", "float32"]);
                     if (Lobby.lobbyWithCode(d[2]) !== null) {
                         this.talk(ptools.encodePacket([protocol.client.lobbyWithCodeAlreadyExists], ["int8"]));
                         break;
                     }
 
+                    this.id = d[3];
                     this.playerInstance = new Player({
                         socket: this,
                         name: d[1],
@@ -476,13 +480,14 @@ const sockets = {
                     // tries to find a lobby, and places a client in a lobby if it exists
                     if (this.playerLobby !== null) return;
 
-                    const d = ptools.decodePacket(reader, ["int8", "string", "string"]);
+                    const d = ptools.decodePacket(reader, ["int8", "string", "string", "float32"]);
                     const l = Lobby.lobbyWithCode(d[2])
                     if (l === null) {
                         this.talk(ptools.encodePacket([protocol.client.noLobbyWithCode], ["int8"]));
                         break;
                     }
 
+                    this.id = d[3];
                     this.playerInstance = new Player({
                         socket: this,
                         name: d[1],

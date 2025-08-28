@@ -48,6 +48,7 @@ export let psd = {
     myId: -1,
     isHost: false,
     inMenu: false,
+    joined: false,
     currentEditObject: null,
     clickCombo: [0, 0, 0]
 };

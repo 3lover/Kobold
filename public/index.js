@@ -1,5 +1,5 @@
 import { decodePacket, encodePacket } from "./clientProtocol.js";
-import { doc, createPopup, findAsset, psd, preferences, populateRightClick, randomColor } from "./sheetScripts.js";
+import { doc, createPopup, findAsset, psd, preferences, populateRightClick, randomColor} from "./sheetScripts.js";
 import { sanitize } from "./helpers.js";
 
 let socket = null;
@@ -79,6 +79,10 @@ class Token {
         this.preventDefaultPosition = false;
         this.synced = p.synced ?? false;
         this.loaded = p.loaded ?? false;
+        this.pinned = p.pinned ?? false;
+
+        psd.unsavedChange = true;
+
         if (this.synced || waitSync) return;
 
         this.sendToken();
@@ -88,6 +92,24 @@ class Token {
     delete() {
         this.loaded = false;
         socket.talk(encodePacket([protocol.server.deleteObject, this.id, this.name], ["int8", "int32", "string"]));
+    }
+
+    // checks if two tokens are the same visually, to avoid duplicate saves
+    equals(other) {
+        if (other.type !== "token") return false;
+        if (this.name !== other.name) return false;
+        if (this.description !== other.description) return false;
+        if (this.radius !== other.radius) return false;
+        if (this.snapInterval !== other.snapInterval) return false;
+        if (this.shape !== other.shape) return false;
+        if (this.cropImage !== other.cropImage) return false;
+        if (this.baseColor !== other.baseColor) return false;
+        if (this.lineColor !== other.lineColor) return false;
+        if (this.lineWidth !== other.lineWidth) return false;
+        if (this.zIndex !== other.zIndex) return false;
+        if (this.linkedSheet !== other.linkedSheet) return false;
+        if (this.linkedImage !== other.linkedImage) return false;
+        return true;
     }
 
     // directly sends the token object to the server
@@ -143,7 +165,16 @@ class Token {
             ctx.beginPath();
             ctx.fillStyle = fetchColor(grabber);
             ctx.strokeStyle = fetchColor(grabber);
-            ctx.arc(0, 0, this.radius * psd.cameraLocation.s, 0, Math.PI * 2);
+            switch (this.shape) {
+                case "circle": {
+                    ctx.arc(0, 0, this.radius * psd.cameraLocation.s, 0, Math.PI * 2);
+                    break;
+                }
+                case "square": {
+                    ctx.rect(-this.radius * psd.cameraLocation.s, -this.radius * psd.cameraLocation.s, this.radius * psd.cameraLocation.s * 2, this.radius * psd.cameraLocation.s * 2);
+                    break;
+                }
+            }
             ctx.fill();
             if (this.lineWidth > 0) ctx.stroke();
         }
@@ -153,7 +184,16 @@ class Token {
         let radius = this.radius * psd.cameraLocation.s;
         let rmod = (this.grabbingPlayer === null ? 1 : 0.7);
         if (showcase) radius = extras.radius;
-        ctx.arc(0, 0, radius * rmod, 0, Math.PI * 2);
+        switch (this.shape) {
+            case "circle": {
+                ctx.arc(0, 0, radius * rmod, 0, Math.PI * 2);
+                break;
+            }
+            case "square": {
+                ctx.rect(-radius * rmod, -radius * rmod, radius * rmod * 2, radius * rmod * 2);
+                break;
+            }
+        }
         ctx.fillStyle = fetchColor(this.baseColor);
         ctx.strokeStyle = fetchColor(this.lineColor);
         ctx.fill();
@@ -163,7 +203,16 @@ class Token {
         if (this.linkedImage && this.linkedImage.drawableObject.complete) {
             buildctx.clearRect(0, 0, W, H);
             buildctx.beginPath();
-            buildctx.arc(radius * rmod, radius * rmod, radius * rmod, 0, Math.PI * 2);
+            switch (this.shape) {
+                case "circle": {
+                    buildctx.arc(radius * rmod, radius * rmod, radius * rmod, 0, Math.PI * 2);
+                    break;
+                }
+                case "square": {
+                    buildctx.rect(0, 0, radius * rmod * 2, radius * rmod * 2);
+                    break;
+                }
+            }
             buildctx.fill();
             buildctx.globalCompositeOperation = "source-in";
             buildctx.drawImage(this.linkedImage.drawableObject, 0, 0, radius * 2  * rmod, radius * 2 * rmod);
@@ -179,6 +228,9 @@ class Token {
         switch (this.shape) {
             case "circle": {
                 return ((this.position.x - loc.x) ** 2 + (this.position.y - loc.y) ** 2) <= this.radius ** 2;
+            }
+            case "square": {
+                return (Math.abs(this.position.x - loc.x) <= this.radius) && (Math.abs(this.position.y - loc.y) <= this.radius);
             }
         }
     }
@@ -288,6 +340,8 @@ class Token {
             reader.readAsDataURL(document.getElementById("tokenImageFileDrop").files[0]);
         }
         else token.sendToken(clone.id);
+
+        psd.unsavedChange = true;
     }
 
     static openEditMenu(e, token = null) {
@@ -322,6 +376,10 @@ class Grid {
 
         this.synced = p.synced ?? false;
         this.loaded = p.loaded ?? false;
+        this.pinned = p.pinned ?? false;
+
+        psd.unsavedChange = true;
+
         if (this.synced || waitSync) return;
 
         this.sendGrid();
@@ -331,6 +389,20 @@ class Grid {
     delete() {
         this.loaded = false;
         socket.talk(encodePacket([protocol.server.deleteObject, this.id, this.name], ["int8", "int32", "string"]));
+    }
+
+    // checks if two grids are the same visually, to avoid duplicate saves
+    equals(other) {
+        if (other.type !== "grid") return false;
+        if (this.name !== other.name) return false;
+        if (this.radius !== other.radius) return false;
+        if (this.dim.x !== other.dim.x || this.dim.y !== other.dim.y) return false;
+        if (this.shape !== other.shape) return false;
+        if (this.lineColor !== other.lineColor) return false;
+        if (this.lineWidth !== other.lineWidth) return false;
+        if (this.zIndex !== other.zIndex) return false;
+        if (this.linkedImage !== other.linkedImage) return false;
+        return true;
     }
 
     // directly sends the token object to the server
@@ -494,6 +566,8 @@ class Grid {
             reader.readAsDataURL(document.getElementById("gridImageFileDrop").files[0]);
         }
         else grid.sendGrid(clone.id);
+
+        psd.unsavedChange = true;
     }
 
     // opens the grid edit menu
@@ -1000,8 +1074,15 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
             while (document.getElementById("saveStateObjectHoldingMenu").children.length > 0) {
                 document.getElementById("saveStateObjectHoldingMenu").lastChild.remove();
             }
+            let addedObjs = [];
             let objList = psd.tokens.concat(psd.grids);
             for (let o of objList) {
+                // test to not add duplicates
+                let found = false;
+                for (let previousObj of addedObjs) if (previousObj.equals(o)) found = true;
+                if (found) continue;
+                addedObjs.push(o);
+
                 let holder = document.createElement("div");
                 holder.classList.add("saveStateObjectHolder");
 
@@ -1010,8 +1091,22 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                 drawing.classList.add("saveStateObjectHolderCanvas");
                 drawing.width = H/2;
                 drawing.height = H/2;
-                o.render(drawing.getContext("2d"), true, {radius: H/4});
+                let drawingctx = drawing.getContext("2d");
+                o.render(drawingctx, true, {radius: H/4});
                 holder.appendChild(drawing);
+                if (o.loaded) holder.style.borderColor = `var(--grey)`;
+                if (o.pinned) {
+                    holder.style.borderColor = `var(--red)`;
+                    drawingctx.beginPath();
+                    drawingctx.fillStyle = fetchColor("red");
+                    drawingctx.fillRect(0, 0, H/2, H/16);
+                    
+                    drawingctx.fillStyle = fetchColor("white");
+                    drawingctx.font = `${H/16}px Jetbrains Mono`;
+                    drawingctx.textAlign = "center";
+                    drawingctx.textBaseline = "middle";
+                    drawingctx.fillText("Pinned", H/4, H/32, H/2);
+                }
 
                 // add the name
                 let text = document.createElement("p");
@@ -1047,6 +1142,29 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                     doc.saveStateMenu.classList.add("hidden");
                     psd.currentEditObject = null;
                     psd.inMenu = false;
+                });
+
+                // when right clicked, pin it
+                holder.addEventListener("contextmenu", function(e2) {
+                    o.pinned = !o.pinned;
+                    drawingctx.clearRect(0, 0, H/2, H/2);
+                    o.render(drawingctx, true, {radius: H/4});
+                    holder.style.borderColor = ``;
+                    if (o.loaded) holder.style.borderColor = `var(--grey)`;
+                    if (o.pinned) {
+                        holder.style.borderColor = `var(--red)`;
+                        drawingctx.beginPath();
+                        drawingctx.fillStyle = fetchColor("red");
+                        drawingctx.fillRect(0, 0, H/2, H/16);
+                        
+                        drawingctx.fillStyle = fetchColor("white");
+                        drawingctx.font = `${H/16}px Jetbrains Mono`;
+                        drawingctx.textAlign = "center";
+                        drawingctx.textBaseline = "middle";
+                        drawingctx.fillText("Pinned", H/4, H/32, H/2);
+                    }
+                    populateRightClick([]);
+                    locallySaveObjects();
                 });
 
                 document.getElementById("saveStateObjectHoldingMenu").appendChild(holder);
@@ -1199,7 +1317,7 @@ document.getElementById("deleteGridButton").addEventListener("click", function(e
 });
 
 // export the map into a kmap file and store it away
-function exportMapData() {
+function exportMapData(onlyPinned = false) {
     // organize our data
     let data = {
         requiredImages: [],
@@ -1207,7 +1325,8 @@ function exportMapData() {
         requiredGrids: [],
     };
     for (let t of psd.tokens) {
-        if (!t.loaded) continue;
+        if (!t.loaded && !onlyPinned) continue;
+        if (onlyPinned && !t.pinned) continue;
         if (t.linkedImage !== null) data.requiredImages.push({
             type: t.linkedImage.type,
             id: t.linkedImage.id,
@@ -1235,7 +1354,8 @@ function exportMapData() {
         });
     }
     for (let g of psd.grids) {
-        if (!g.loaded) continue;
+        if (!g.loaded && !onlyPinned) continue;
+        if (onlyPinned && !g.pinned) continue;
         if (g.linkedImage !== null) data.requiredImages.push({
             type: g.linkedImage.type,
             id: g.linkedImage.id,
@@ -1260,6 +1380,8 @@ function exportMapData() {
         });
     }
 
+    psd.unsavedChange = true;
+
     data = JSON.stringify(data);
     return data;
 }
@@ -1277,10 +1399,10 @@ document.getElementById("exportMapButton").addEventListener("click", function(e)
 });
 
 // imports a map from a kmap file
-function importFromData(data) {
+function importFromData(data, talkToServer = true) {
     for (let t of psd.tokens) t.loaded = false;
     for (let g of psd.grids) g.loaded = false;
-    socket.talk(encodePacket([protocol.server.loadNewMap], ["int8"]));
+    if (talkToServer) socket.talk(encodePacket([protocol.server.loadNewMap], ["int8"]));
 
     for (let image of data.requiredImages) {
         if (findAsset(image.id, image.name) !== null) continue;
@@ -1299,8 +1421,10 @@ function importFromData(data) {
         }
         psd.tokens.push(a);
         
-        a.loaded = true;
-        a.sendToken();
+        if (talkToServer) {
+            a.loaded = true;
+            a.sendToken();
+        }
     }
 
     for (let g of data.requiredGrids) {
@@ -1312,8 +1436,10 @@ function importFromData(data) {
         }
         psd.grids.push(a);
         
-        a.loaded = true;
-        a.sendGrid();
+        if (talkToServer) {
+            a.loaded = true;
+            a.sendGrid();
+        }
     }
 }
 document.getElementById("importMapFileDrop").addEventListener("change", function(e) {
@@ -1325,6 +1451,9 @@ document.getElementById("importMapFileDrop").addEventListener("change", function
         const reader = new FileReader();
         reader.onload = function() {
             try {
+                doc.saveStateMenu.classList.add("hidden");
+                psd.currentEditObject = null;
+                psd.inMenu = false;
                 const data = JSON.parse(atob(reader.result.split("base64,")[1]));
                 importFromData(data);
             } catch(err) {
@@ -1335,6 +1464,50 @@ document.getElementById("importMapFileDrop").addEventListener("change", function
         reader.readAsDataURL(document.getElementById("importMapFileDrop").files[0]);
     }
 });
+
+document.getElementById("wipeSaveStatesButton").addEventListener("click", function(e) {
+    createPopup(
+        "Confirm Wipe", `This will delete all (unpinned and unloaded) saved tokens and grids. Are you sure you want to do this?`, {type: 0},
+        "Confirm", function(e) {
+            for (let i = psd.tokens.length - 1; i >= 0; i--) {
+                if (psd.tokens[i].pinned || psd.tokens[i].loaded) continue;
+                psd.tokens.splice(i, 1);
+            }
+            for (let i = psd.grids.length - 1; i >= 0; i--) {
+                if (psd.grids[i].pinned || psd.grids[i].loaded) continue;
+                psd.grids.splice(i, 1);
+            }
+            doc.saveStateMenu.classList.add("hidden");
+            psd.currentEditObject = null;
+            psd.inMenu = false;
+            return true;
+        },
+        "Cancel", function(e) {
+            return true;
+        },
+    );
+});
+
+// a function that checks what objects exist in our scene, and saves them on refresh
+function locallySaveObjects() {
+    let data = exportMapData(true);
+    try {
+        localStorage.setItem("localObjectSaves", data);
+    } catch(err) {
+        alert(err);
+    }
+}
+if (localStorage.getItem("localObjectSaves")) {
+    try {
+        let data = JSON.parse(localStorage.getItem("localObjectSaves"));
+        importFromData(data, false);
+        for (let token of psd.tokens) token.pinned = true;
+        for (let grid of psd.grids) grid.pinned = true;
+    } catch (err) {
+        console.log(err);
+        localStorage.setItem("localObjectSaves", "");
+    }
+}
 
 /* Load saved input contents */
 function saveInput(input) {
@@ -1359,6 +1532,11 @@ document.addEventListener("keydown", function(e) {
             break;
         }
     }
+});
+
+// when the page is reloaded, if we haven't recently saved ask if we are sure
+window.addEventListener("beforeunload", function(e) {
+    if (psd.unsavedChanges) e.preventDefault();
 });
 
 

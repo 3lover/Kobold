@@ -50,11 +50,11 @@ export let psd = {
     inMenu: false,
     joined: false,
     currentEditObject: null,
-    clickCombo: [0, 0, 0]
+    clickCombo: [0, 0, 0],
+    unsavedChange: false,
 };
 
-if (localStorage.getItem("psd")) psd = JSON.parse(localStorage.getItem("psd"));
-else await loadDefaultCharacterSheet();
+loadDefaultCharacterSheet();
 
 export function randomColor(noWhites = false) {
     if (noWhites) return validColors[Math.floor(Math.random() * (validColors.length - 7)) + 7];

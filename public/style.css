@@ -1481,8 +1481,7 @@ span {
     transform: scale(120%);
 }
 .saveStateObjectHolder:active {
-    transform: scale(120%);
-    border-color: var(--red);
+    transform: scale(115%);
 }
 
 .saveStateObjectHolderCanvas {
@@ -1497,10 +1496,10 @@ span {
     justify-content: center;
     width: 100%;
     left: 0;
-    top: calc(7vw - 4vmin);
-    height: 4vmin;
+    top: calc(6vw - 5vmin);
+    height: 5vmin;
     font-size: 2vmin;
     background-color: var(--black);
     color: var(--white);
-    opacity: 0.8;
+    opacity: 0.6;
 }

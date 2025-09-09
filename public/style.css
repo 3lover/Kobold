@@ -1416,6 +1416,7 @@ span {
 .objectMenuTextArea {
     resize: vertical;
     text-align: left;
+    height: 20vh;
 }
 
 /* The save state menu, for loading and importing/exporting maps and tokens */

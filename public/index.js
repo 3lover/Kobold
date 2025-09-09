@@ -60,7 +60,7 @@ class Token {
         this.radius = p.radius ?? 20;
         this.position = {x: p.position ? p.position.x : 0, y: p.position ? p.position.y : 0};
         this.originalPosition = {x: this.position.x, y: this.position.y};
-        this.snapInterval = p.snapInterval ?? 1;
+        this.snapInterval = p.snapInterval ?? false;
 
         this.shape = p.shape ?? "circle";
         this.cropImage = p.cropImage ?? true;
@@ -74,6 +74,7 @@ class Token {
         this.linkedImage = p.linkedImage ?? null;
         this.linkedImageAwait = {id: p.linkedImageAwait ? p.linkedImageAwait.id : -1, name: p.linkedImageAwait ? p.linkedImageAwait.name : ""};
         this.removingLinked = false;
+        this.trackedGridId = -1;
 
         this.grabbingPlayer = p.grabbingPlayer ?? null;
         this.preventDefaultPosition = false;
@@ -130,11 +131,12 @@ class Token {
             /* 11 */ this.lineColor, "string",
             /* 12 */ this.lineWidth, "float32",
             /* 13 */ this.zIndex, "int32",
-            /* 14 */ this.linkedSheet ? this.linkedSheet.id : -1, "int32",
-            /* 15 */ this.linkedSheet ? this.linkedSheet.name : "", "string",
-            /* 16 */ this.linkedImage ? this.linkedImage.id : -1, "int32",
-            /* 17 */ this.linkedImage ? this.linkedImage.name : "", "string",
-            /* 18 */ oldid ?? this.id, "int32"
+            /* 14 */ this.snapInterval ? 1 : 0, "int8",
+            /* 15 */ this.linkedSheet ? this.linkedSheet.id : -1, "int32",
+            /* 16 */ this.linkedSheet ? this.linkedSheet.name : "", "string",
+            /* 17 */ this.linkedImage ? this.linkedImage.id : -1, "int32",
+            /* 18 */ this.linkedImage ? this.linkedImage.name : "", "string",
+            /* 19 */ oldid ?? this.id, "int32"
         ];
         const tokenData = tokenLayout.filter((e, i) => {return i % 2 === 0});
         const tokenTypes = tokenLayout.filter((e, i) => {return i % 2 === 1});
@@ -154,6 +156,80 @@ class Token {
             (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
         );
         else ctx.translate(extras.radius, extras.radius);
+
+        // if the token is being dragged, show the original location, and the distance moved if applicable
+        if (this.grabbingPlayer !== null) {
+            ctx.beginPath();
+            ctx.lineWidth = psd.cameraLocation.s * this.radius * 0.1;
+            ctx.strokeStyle = fetchColor(this.lineColor);
+            let originalTrans = {
+                x: (this.originalPosition.x - this.position.x) * psd.cameraLocation.s,
+                y: (this.originalPosition.y - this.position.y) * psd.cameraLocation.s
+            }
+            switch (this.shape) {
+                case "circle": {
+                    ctx.arc(originalTrans.x, originalTrans.y, this.radius * psd.cameraLocation.s, 0, Math.PI * 2);
+                    break;
+                }
+                case "square": {
+                    ctx.rect(
+                        originalTrans.x - this.radius * psd.cameraLocation.s,
+                        originalTrans.y - this.radius * psd.cameraLocation.s,
+                        this.radius * psd.cameraLocation.s * 2,
+                        this.radius * psd.cameraLocation.s * 2
+                    );
+                    break;
+                }
+            }
+            ctx.stroke();
+
+            if (this.trackedGridId !== -1) {
+                ctx.beginPath();
+                ctx.lineWidth = psd.cameraLocation.s * this.radius * 0.2;
+                ctx.setLineDash([psd.cameraLocation.s * 10, psd.cameraLocation.s * 10]);
+                ctx.moveTo(originalTrans.x, originalTrans.y);
+                ctx.lineTo(0, 0);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // calculate how far this is on the tracked grid in cells, and draw that number
+                let textPos = {
+                    x: 0,
+                    y: psd.cameraLocation.s * this.radius * 2,
+                };
+                let distance = 1;
+                for (let grid of psd.grids) {
+                    if (grid.id === this.trackedGridId) {
+                        switch (grid.shape) {
+                            case "square": {
+                                distance = Math.sqrt(
+                                    (this.position.x - this.originalPosition.x) ** 2 + (this.position.y - this.originalPosition.y) ** 2
+                                ) / grid.radius;
+                                break;
+                            }
+                            case "hexagon": {
+                                distance = Math.sqrt(
+                                    (this.position.x - this.originalPosition.x) ** 2 + (this.position.y - this.originalPosition.y) ** 2
+                                ) / grid.radius * Math.sqrt(3)/2;
+                                break;
+                            }
+                        }
+                    }
+                }
+                distance = Math.round(distance * 10) / 10;
+                ctx.save();
+                ctx.lineWidth = psd.cameraLocation.s * this.radius * 0.05;
+                ctx.fillStyle = fetchColor(this.lineColor);
+                ctx.strokeStyle = fetchColor(this.baseColor);
+                ctx.font = `${psd.cameraLocation.s * this.radius * 0.6}px Jetbrains Mono`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.translate(textPos.x, textPos.y);
+                ctx.strokeText(`${distance} Cells`, 0, 0);
+                ctx.fillText(`${distance} Cells`, 0, 0);
+                ctx.restore();
+            }
+        }
         
         ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
         if (showcase) ctx.lineWidth = extras.radius * this.lineWidth / this.radius;
@@ -240,6 +316,11 @@ class Token {
         const token = this;
         token.originalPosition = {x: token.position.x, y: token.position.y};
         token.preventDefaultPosition = true;
+        token.trackedGridId = -1;
+        for (let grid of psd.grids) {
+            if (!grid.loaded) continue;
+            if (grid.enableGridCount && grid.inside(this.position)) token.trackedGridId = grid.id;
+        }
 
         // as we drag, move the token accordingly
         function moveToken(e2) {
@@ -249,9 +330,55 @@ class Token {
             }
             token.position.x = token.originalPosition.x - (e.clientX - e2.clientX) / psd.cameraLocation.s;
             token.position.y = token.originalPosition.y - (e.clientY - e2.clientY) / psd.cameraLocation.s;
-            // snap it to the interval
-            token.position.x = Math.round(token.position.x / token.snapInterval) * token.snapInterval;
-            token.position.y = Math.round(token.position.y / token.snapInterval) * token.snapInterval;
+            // snap it to the interval if we are on a grid with that turned on
+            if (token.snapInterval) {
+                let g = null;
+                for (let grid of psd.grids) {
+                    if (!grid.loaded) continue;
+                    if (grid.inside(token.position)) g = grid;
+                }
+                if (g !== null) switch (g.shape) {
+                    case "square": {
+                        token.position.x = (Math.round((token.position.x - g.position.x) / g.radius + 0.5) - 0.5) * g.radius + g.position.x;
+                        token.position.y = (Math.round((token.position.y - g.position.y) / g.radius + 0.5) - 0.5) * g.radius + g.position.y;
+                        break;
+                    }
+                    case "hexagon": {
+                        let radius = g.radius * 2/3;
+                        let snapOptions = [];
+                        // go through every nearby cell and check the distance
+                        for (let i = 0; i < g.dim.x; i++) {
+                            let polarity = i % 2 === 0 ? -1 : 1;
+                            for (let j = 0; j < g.dim.y; j++) {
+                                let ypos;
+                                if (polarity === 1) {
+                                    ypos = 0;
+                                } else {
+                                    ypos = radius * Math.sqrt(3)/2;
+                                }
+                                let snapPos = {
+                                    x: g.position.x + radius * (i + 0.5) * 3/2 - g.realDim.x/2,
+                                    y: g.position.y + radius * Math.sqrt(3) * (j + 0.5) + ypos - g.realDim.y/2
+                                }
+                                let dist = (snapPos.x - token.position.x) ** 2 + (snapPos.y - token.position.y) ** 2;
+                                if (dist < (g.radius) ** 2) {
+                                    snapOptions.push([snapPos.x, snapPos.y, dist]);
+                                }
+                            }
+                        }
+                        if (snapOptions.length < 1) break;
+                        let closest = snapOptions[0];
+                        for (let o of snapOptions) {
+                            if (o[2] < closest[2]) {
+                                closest = o;
+                            }
+                        }
+                        token.position.x = closest[0];
+                        token.position.y = closest[1];
+                        break;
+                    }
+                }
+            }
 
             socket.talk(encodePacket([protocol.server.tokenMoved, token.id, token.name, token.position.x, token.position.y], ["int8", "int32", "string", "float32", "float32"]));
         }
@@ -280,7 +407,7 @@ class Token {
         document.getElementById("tokenRadiusInput").value = this.radius;
         document.getElementById("tokenBorderRadiusInput").value = this.lineWidth;
         document.getElementById("tokenZIndexInput").value = this.zIndex;
-        document.getElementById("tokenGridSnapInput").value = this.snapInterval;
+        document.getElementById("tokenGridSnapInput").value = this.snapInterval ? "1" : "0";
         document.getElementById("tokenColorInput").value = this.baseColor;
         document.getElementById("tokenBorderColorInput").value = this.lineColor;
         document.getElementById("tokenShapeInput").value = this.shape;
@@ -297,7 +424,7 @@ class Token {
             this.radius === sanitize(document.getElementById("tokenRadiusInput").value, "float", {min: 1, max: 1000, default: 20}) &&
             this.lineWidth === sanitize(document.getElementById("tokenBorderRadiusInput").value, "float", {min: 0, max: 1000, default: 5}) &&
             this.zIndex === sanitize(document.getElementById("tokenZIndexInput").value, "float", {min: -1000, max: 1000, default: 0}) &&
-            this.snapInterval === sanitize(document.getElementById("tokenGridSnapInput").value, "float", {min: 0.1, max: 1000, default: 1}) &&
+            this.snapInterval === (sanitize(document.getElementById("tokenGridSnapInput").value, "option", {valid: ["0", "1"], default: "0"}) === "1") &&
             this.baseColor === sanitize(document.getElementById("tokenColorInput").value, "color", {default: "red"}) &&
             this.lineColor === sanitize(document.getElementById("tokenBorderColorInput").value, "color", {default: "white"}) &&
             this.lineColor === sanitize(document.getElementById("tokenBorderColorInput").value, "color", {default: "white"}) &&
@@ -318,7 +445,7 @@ class Token {
         this.radius = sanitize(document.getElementById("tokenRadiusInput").value, "float", {min: 1, max: 1000, default: 20});
         this.lineWidth = sanitize(document.getElementById("tokenBorderRadiusInput").value, "float", {min: 0, max: 1000, default: 5});
         this.zIndex = sanitize(document.getElementById("tokenZIndexInput").value, "float", {min: -1000, max: 1000, default: 0});
-        this.snapInterval = sanitize(document.getElementById("tokenGridSnapInput").value, "float", {min: 0.1, max: 1000, default: 1});
+        this.snapInterval = (sanitize(document.getElementById("tokenGridSnapInput").value, "option", {valid: ["0", "1"], default: "0"}) === "1");
         this.baseColor = sanitize(document.getElementById("tokenColorInput").value, "color", {default: "red"});
         this.lineColor = sanitize(document.getElementById("tokenBorderColorInput").value, "color", {default: "white"});
         this.shape = sanitize(document.getElementById("tokenShapeInput").value, "option", {valid: ["circle", "square"], default: "circle"});
@@ -364,6 +491,7 @@ class Grid {
         this.dim = p.dim ?? {x: 10, y: 10};
         this.position = p.position ?? {x: 0, y: 0};
         this.realDim = p.realDim ?? {x: this.radius * this.dim.x, y: this.radius * this.dim.y};
+        this.enableGridCount = p.enableGridCount ?? false;
 
         this.shape = p.shape ?? "square";
         this.lineColor = p.lineColor ?? "red";
@@ -421,6 +549,7 @@ class Grid {
             /* 10 */ this.lineColor, "string",
             /* 11 */ this.lineWidth, "float32",
             /* 12 */ this.zIndex, "int32",
+            /* 13 */ this.enableGridCount ? 1 : 0, "int8",
             /* 13 */ this.linkedImage ? this.linkedImage.id : -1, "int32",
             /* 14 */ this.linkedImage ? this.linkedImage.name : "", "string",
             /* 15 */ oldid ?? this.id, "int32"
@@ -436,7 +565,10 @@ class Grid {
     }
 
     render(ctx = mctx, showcase = false, extras = {}) {
-        this.realDim = {x: this.radius * this.dim.x, y: this.radius * this.dim.y};
+        switch (this.shape) {
+            case "square": this.realDim = {x: this.radius * this.dim.x, y: this.radius * this.dim.y}; break;
+            case "hexagon": this.realDim = {x: this.radius * this.dim.x, y: this.radius * 2/3 * Math.sqrt(3) * (this.dim.y + 0.5)}; break;
+        }
         
         ctx.beginPath();
         ctx.save();
@@ -478,7 +610,30 @@ class Grid {
                 if (this.lineWidth > 0) ctx.stroke();
                 break;
             }
-            case "hex": {
+            case "hexagon": {
+                function renderHex(x, y, r) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + r, y);
+                    for (let i = 0; i <= 6; i++) {
+                        ctx.lineTo(x + r * Math.cos(i * Math.PI/3), y + r * Math.sin(i * Math.PI/3));
+                    }
+                    ctx.stroke();
+                }
+                radius = this.radius * 2/3;
+                if (showcase) radius = extras.radius * 2 / this.dim.x * 2/3;
+                // create the grid
+                for (let i = 0; i < this.dim.x; i++) {
+                    let polarity = i % 2 === 0 ? -1 : 1;
+                    for (let j = 0; j < this.dim.y; j++) {
+                        let ypos;
+                        if (polarity === 1) {
+                            ypos = 0;
+                        } else {
+                            ypos = radius * Math.sqrt(3)/2 * psd.cameraLocation.s;
+                        }
+                        renderHex(radius * (i + 0.5) * 3/2 * psd.cameraLocation.s, radius * Math.sqrt(3) * (j + 0.5) * psd.cameraLocation.s + ypos, radius * psd.cameraLocation.s);
+                    }
+                }
                 break;
             }
             default: {
@@ -508,6 +663,7 @@ class Grid {
         document.getElementById("gridLineWidthInput").value = this.lineWidth;
         document.getElementById("gridLineColorInput").value = this.lineColor;
         document.getElementById("gridZIndexInput").value = this.zIndex;
+        document.getElementById("gridEnableCountInput").value = this.enableGridCount ? "1" : "0";
         document.getElementById("gridShapeInput").value = this.shape;
         document.getElementById("gridImageFileDrop").value = "";
         document.getElementById("gridImageFileDropLabel").innerText = this.linkedImage ? this.linkedImage.name : "Click to Upload a File";
@@ -526,6 +682,7 @@ class Grid {
             this.lineWidth === sanitize(document.getElementById("gridLineWidthInput").value, "float", {min: 0, max: 1000, default: 2}) &&
             this.lineColor === sanitize(document.getElementById("gridLineColorInput").value, "color", {default: "white"}) &&
             this.zIndex === sanitize(document.getElementById("gridZIndexInput").value, "float", {min: -1000, max: 1000, default: 0}) &&
+            this.enableGridCount === sanitize(document.getElementById("gridEnableCountInput").value, "option", {valid: ["0", "1"], default: "0"}) &&
             this.shape === sanitize(document.getElementById("gridShapeInput").value, "option", {valid: ["hexagon", "square"], default: "square"}) &&
             document.getElementById("gridImageFileDrop").files.length <= 0 &&
             !this.removingLinked
@@ -547,6 +704,7 @@ class Grid {
         this.lineWidth = sanitize(document.getElementById("gridLineWidthInput").value, "float", {min: 0, max: 1000, default: 2});
         this.lineColor = sanitize(document.getElementById("gridLineColorInput").value, "color", {default: "white"});
         this.zIndex = sanitize(document.getElementById("gridZIndexInput").value, "float", {min: -1000, max: 1000, default: 0});
+        this.enableGridCount = sanitize(document.getElementById("gridEnableCountInput").value, "option", {valid: ["0", "1"], default: "0"}) === "1";
         this.shape = sanitize(document.getElementById("gridShapeInput").value, "option", {valid: ["hexagon", "square"], default: "square"});
 
         // wait until our image loads if we have one, otherwise just update it now
@@ -757,8 +915,8 @@ class Socket {
                 const d = decodePacket(reader, [
                     "int8", 
                     "repeat", "int32", "string", "string", "end", 
-                    "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32", "end",
-                    "repeat", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int32", "string", "int32", "end"
+                    "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', "int8", 'int32', 'string', 'int32', 'string', "int32", "end",
+                    "repeat", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int8", "int32", "string", "int32", "end"
                 ]);
                 console.log("Data packet recieved!");
                 for (let i = 0; i < d[1].length; i += 3) {
@@ -769,7 +927,7 @@ class Socket {
                         data: d[1][i + 2],
                     }));
                 }
-                for (let i = 0; i < d[2].length; i += 18) {
+                for (let i = 0; i < d[2].length; i += 19) {
                     if (findAsset(d[2][i + 1], d[2][i + 2]) !== null) continue;
                     psd.tokens.push(new Token({
                         type: d[2][i + 0],
@@ -784,13 +942,14 @@ class Socket {
                         lineColor: d[2][i + 10],
                         lineWidth: d[2][i + 11],
                         zIndex: d[2][i + 12],
-                        linkedSheetAwait: {id: d[2][i + 13], name: d[2][i + 14]},
-                        linkedImageAwait: {id: d[2][i + 15], name: d[2][i + 16]},
-                        grabbingPlayer: d[2][i + 17] === -1 ? null : d[2][i + 17],
+                        snapInterval: !!d[2][i + 13],
+                        linkedSheetAwait: {id: d[2][i + 14], name: d[2][i + 15]},
+                        linkedImageAwait: {id: d[2][i + 16], name: d[2][i + 17]},
+                        grabbingPlayer: d[2][i + 18] === -1 ? null : d[2][i + 18],
                         synced: true,
                     }));
                 }
-                for (let i = 0; i < d[3].length; i += 14) {
+                for (let i = 0; i < d[3].length; i += 15) {
                     if (findAsset(d[3][i + 1], d[3][i + 2]) !== null) continue;
                     psd.grids.push(new Grid({
                         type: d[3][i + 0],
@@ -803,7 +962,8 @@ class Socket {
                         lineColor: d[3][i + 9],
                         lineWidth: d[3][i + 10],
                         zIndex: d[3][i + 11],
-                        linkedImageAwait: {id: d[3][i + 12], name: d[3][i + 13]},
+                        enableGridCount: !!d[3][i + 12],
+                        linkedImageAwait: {id: d[3][i + 13], name: d[3][i + 14]},
                         synced: true,
                     }));
                 }
@@ -1177,7 +1337,10 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
     for (let i = psd.grids.length - 1; i >= 0; i--) {
         let grid = psd.grids[i];
         if (!grid.loaded) continue;
-        if (grid.inside({x: e.clientX + psd.cameraLocation.x - W/2, y: e.clientY + psd.cameraLocation.y - H/2})) {
+        if (grid.inside({
+            x: (e.clientX - W/2) / psd.cameraLocation.s + psd.cameraLocation.x,
+            y: (e.clientY - H/2) / psd.cameraLocation.s + psd.cameraLocation.y
+        })) {
             found++;
             if (found !== psd.clickCombo[0] + 1) continue;
 
@@ -1341,7 +1504,7 @@ function exportMapData(onlyPinned = false) {
             radius: t.radius,
             position: t.position,
             originalPosition: t.position,
-            snapInterval: t.snapInterval,
+            snapInterval: t.snapInterval ? 1 : 0,
             shape: t.shape,
             cropImage: t.cropImage,
             baseColor: t.baseColor,
@@ -1374,6 +1537,7 @@ function exportMapData(onlyPinned = false) {
             lineColor: g.lineColor,
             lineWidth: g.lineWidth,
             zIndex: g.zIndex,
+            enableGridCount: g.enableGridCount,
             linkedImage: g.linkedImage,
             linkedImageAwait: g.linkedImage === null ? {id: -1, name: ""} : {id: g.linkedImage.id, name: g.linkedImage.name},
             synced: true,
@@ -1562,6 +1726,15 @@ function update() {
 
     // begin rendering
     mctx.clearRect(0, 0, W, H);
+
+    mctx.beginPath();
+    mctx.fillStyle = fetchColor("red");
+    mctx.arc(
+            (-psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
+            (-psd.cameraLocation.y) * psd.cameraLocation.s + H/2,
+            3 * psd.cameraLocation.s, 0, Math.PI * 2
+    );
+    mctx.fill();
 
     // draw every grid by their z-index
     psd.grids = psd.grids.sort(function(a, b) {

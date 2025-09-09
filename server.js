@@ -113,7 +113,7 @@ class Lobby {
         player.talk(ptools.encodePacket(requestedAssets, [
             "int8", 
             "repeat", "int32", "string", "string", "end", 
-            "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32", "end",
+            "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', "int8", 'int32', 'string', 'int32', 'string', "int32", "end",
             "repeat", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int32", "string", "int32", "end"
         ]));
 
@@ -122,9 +122,9 @@ class Lobby {
     // adds a token to the server, and syncs it with all players
     addToken(d) {
         let tokenFound = null;
-        for (let token of this.objects.tokens) if (token.id === d[18]) tokenFound = token;
+        for (let token of this.objects.tokens) if (token.id === d[19]) tokenFound = token;
         if (tokenFound !== null) {
-            if (d[18] === d[2]) return;
+            if (d[19] === d[2]) return;
             this.objects.tokens.splice(this.objects.tokens.indexOf(tokenFound), 1);
         }
 
@@ -136,16 +136,17 @@ class Lobby {
             radius: d[5],
             position: {x: d[6], y: d[7]},
             shape: d[8],
-            cropImage: d[9],
+            cropImage: !!d[9],
             baseColor: d[10],
             lineColor: d[11],
             lineWidth: d[12],
             zIndex: d[13],
-            linkedSheetAwait: {id: d[14], name: d[15]},
-            linkedImageAwait: {id: d[16], name: d[17]},
+            snapInterval: !!d[14],
+            linkedSheetAwait: {id: d[15], name: d[16]},
+            linkedImageAwait: {id: d[17], name: d[18]},
         });
         if (tokenFound === null) console.log(`Added a token with id ${token.id}!`);
-        else console.log(`Updated token with id ${d[18]}, now id ${token.id}`);
+        else console.log(`Updated token with id ${d[19]}, now id ${token.id}`);
 
         this.objects.tokens.push(token);
 
@@ -155,9 +156,9 @@ class Lobby {
     // adds a grid and syncs it
     addGrid(d) {
         let gridFound = null;
-        for (let grid of this.objects.grids) if (grid.id === d[15]) gridFound = grid;
+        for (let grid of this.objects.grids) if (grid.id === d[16]) gridFound = grid;
         if (gridFound !== null) {
-            if (d[15] === d[2]) return;
+            if (d[16] === d[2]) return;
             this.objects.grids.splice(this.objects.grids.indexOf(gridFound), 1);
         }
 
@@ -172,10 +173,11 @@ class Lobby {
             lineColor: d[10],
             lineWidth: d[11],
             zIndex: d[12],
-            linkedImageAwait: {id: d[13], name: d[14]},
+            enableGridCount: !!d[13],
+            linkedImageAwait: {id: d[14], name: d[15]},
         });
         if (gridFound === null) console.log(`Added a grid with id ${grid.id}!`);
-        else console.log(`Updated grid with id ${d[15]}, now id ${grid.id}`);
+        else console.log(`Updated grid with id ${d[16]}, now id ${grid.id}`);
 
         this.objects.grids.push(grid);
 
@@ -320,6 +322,7 @@ class Grid extends Object {
         this.dim = p.dim ?? {x: 10, y: 10};
         this.shape = p.shape ?? "square";
         this.zIndex = p.zIndex ?? 0;
+        this.enableGridCount = p.enableGridCount ?? false;
 
         this.imageOffset = p.imageOffset ?? {x: 0, y: 0};
         this.linkedImage = p.linkedImage ?? null;
@@ -340,6 +343,7 @@ class Grid extends Object {
             this.lineColor,
             this.lineWidth,
             this.zIndex,
+            this.enableGridCount ? 1 : 0,
             this.linkedImageAwait.id,
             this.linkedImageAwait.name
         ];
@@ -364,6 +368,7 @@ class Token extends Object {
         this.lineColor = p.lineColor ?? "white";
         this.lineWidth = p.lineWidth ?? 5;
         this.zIndex = p.zIndex ?? 0;
+        this.snapInterval = p.snapInterval ?? false;
 
         this.linkedSheet = p.linkedSheet ?? null;
         this.linkedSheetAwait = p.linkedSheetAwait ?? {id: -1, name: ""};
@@ -388,6 +393,7 @@ class Token extends Object {
             this.lineColor,
             this.lineWidth,
             this.zIndex,
+            this.snapInterval ? 1 : 0,
             this.linkedSheetAwait.id,
             this.linkedSheetAwait.name,
             this.linkedImageAwait.id,
@@ -523,7 +529,7 @@ const sockets = {
                 // when a client creates a token, we sync it with all players
                 case protocol.server.tokenCreated: {
                     if (!this.playerLobby) return;
-                    const d = ptools.decodePacket(reader, ['int8', 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', 'int32', 'string', 'int32', 'string', "int32"]);
+                    const d = ptools.decodePacket(reader, ['int8', 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', "int8", 'int32', 'string', 'int32', 'string', "int32"]);
                     this.playerLobby.addToken(d);
                     break;
                 }
@@ -581,7 +587,7 @@ const sockets = {
                 // when a client creates a grid, sync it with everyone
                 case protocol.server.gridCreated: {
                     if (!this.playerLobby) return;
-                    const d = ptools.decodePacket(reader, ["int8", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int32", "string", "int32"]);
+                    const d = ptools.decodePacket(reader, ["int8", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int8", "int32", "string", "int32"]);
                     this.playerLobby.addGrid(d);
                     break;
                 }

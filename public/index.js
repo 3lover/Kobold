@@ -75,6 +75,7 @@ class Token {
         this.linkedImageAwait = {id: p.linkedImageAwait ? p.linkedImageAwait.id : -1, name: p.linkedImageAwait ? p.linkedImageAwait.name : ""};
         this.removingLinked = false;
         this.trackedGridId = -1;
+        this.tempImage = null;
 
         this.grabbingPlayer = p.grabbingPlayer ?? null;
         this.preventDefaultPosition = false;
@@ -149,19 +150,26 @@ class Token {
     }
 
     render(ctx = mctx, showcase = false, extras = {}) {
+        const usedLineColor = extras.lineColor ?? this.lineColor;
+        const usedBaseColor = extras.baseColor ?? this.baseColor;
+        const usedShape = extras.shape ?? this.shape;
+        const usedLineWidth = extras.lineWidth ?? this.lineWidth;
+        const usedR = extras.tokenRadius ?? this.radius;
+        const usedImage = extras.linkedImage ?? this.linkedImage;
+
         ctx.save();
         if (!this.synced) ctx.globalAlpha = 0.4;
         if (!showcase) ctx.translate(
             (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
             (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
         );
-        else ctx.translate(extras.radius, extras.radius);
+        else ctx.translate(extras.x, extras.y);
 
         // if the token is being dragged, show the original location, and the distance moved if applicable
         if (this.grabbingPlayer !== null) {
             ctx.beginPath();
             ctx.lineWidth = psd.cameraLocation.s * this.radius * 0.1;
-            ctx.strokeStyle = fetchColor(this.lineColor);
+            ctx.strokeStyle = fetchColor(usedLineColor);
             let originalTrans = {
                 x: (this.originalPosition.x - this.position.x) * psd.cameraLocation.s,
                 y: (this.originalPosition.y - this.position.y) * psd.cameraLocation.s
@@ -219,8 +227,8 @@ class Token {
                 distance = Math.round(distance * 10) / 10;
                 ctx.save();
                 ctx.lineWidth = psd.cameraLocation.s * this.radius * 0.05;
-                ctx.fillStyle = fetchColor(this.lineColor);
-                ctx.strokeStyle = fetchColor(this.baseColor);
+                ctx.fillStyle = fetchColor(usedLineColor);
+                ctx.strokeStyle = fetchColor(usedBaseColor);
                 ctx.font = `${psd.cameraLocation.s * this.radius * 0.6}px Jetbrains Mono`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
@@ -231,8 +239,8 @@ class Token {
             }
         }
         
-        ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
-        if (showcase) ctx.lineWidth = extras.radius * this.lineWidth / this.radius;
+        ctx.lineWidth = usedLineWidth * psd.cameraLocation.s;
+        if (showcase) ctx.lineWidth = extras.radius * usedLineWidth / usedR;
 
         // draw the color of the grabber in the background if needed
         if (this.grabbingPlayer !== null) {
@@ -241,7 +249,7 @@ class Token {
             ctx.beginPath();
             ctx.fillStyle = fetchColor(grabber);
             ctx.strokeStyle = fetchColor(grabber);
-            switch (this.shape) {
+            switch (usedShape) {
                 case "circle": {
                     ctx.arc(0, 0, this.radius * psd.cameraLocation.s, 0, Math.PI * 2);
                     break;
@@ -260,7 +268,7 @@ class Token {
         let radius = this.radius * psd.cameraLocation.s;
         let rmod = (this.grabbingPlayer === null ? 1 : 0.7);
         if (showcase) radius = extras.radius;
-        switch (this.shape) {
+        switch (usedShape) {
             case "circle": {
                 ctx.arc(0, 0, radius * rmod, 0, Math.PI * 2);
                 break;
@@ -270,16 +278,16 @@ class Token {
                 break;
             }
         }
-        ctx.fillStyle = fetchColor(this.baseColor);
-        ctx.strokeStyle = fetchColor(this.lineColor);
+        ctx.fillStyle = fetchColor(usedBaseColor);
+        ctx.strokeStyle = fetchColor(usedLineColor);
         ctx.fill();
         if (this.lineWidth > 0) ctx.stroke();
 
         // draw the linked image, if one exists
-        if (this.linkedImage && this.linkedImage.drawableObject.complete) {
+        if (usedImage && usedImage.drawableObject.complete) {
             buildctx.clearRect(0, 0, W, H);
             buildctx.beginPath();
-            switch (this.shape) {
+            switch (usedShape) {
                 case "circle": {
                     buildctx.arc(radius * rmod, radius * rmod, radius * rmod, 0, Math.PI * 2);
                     break;
@@ -291,7 +299,7 @@ class Token {
             }
             buildctx.fill();
             buildctx.globalCompositeOperation = "source-in";
-            buildctx.drawImage(this.linkedImage.drawableObject, 0, 0, radius * 2  * rmod, radius * 2 * rmod);
+            buildctx.drawImage(usedImage.drawableObject, 0, 0, radius * 2  * rmod, radius * 2 * rmod);
             buildctx.globalCompositeOperation = "source-over";
 
             ctx.drawImage(buildCanvas, -radius * rmod, -radius * rmod);
@@ -1252,7 +1260,7 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                 drawing.width = H/2;
                 drawing.height = H/2;
                 let drawingctx = drawing.getContext("2d");
-                o.render(drawingctx, true, {radius: H/4});
+                o.render(drawingctx, true, {radius: H/6, x: H/4, y: H/4});
                 holder.appendChild(drawing);
                 if (o.loaded) holder.style.borderColor = `var(--grey)`;
                 if (o.pinned) {
@@ -1308,7 +1316,7 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                 holder.addEventListener("contextmenu", function(e2) {
                     o.pinned = !o.pinned;
                     drawingctx.clearRect(0, 0, H/2, H/2);
-                    o.render(drawingctx, true, {radius: H/4});
+                    o.render(drawingctx, true, {radius: H/6, x: H/4, y: H/4});
                     holder.style.borderColor = ``;
                     if (o.loaded) holder.style.borderColor = `var(--grey)`;
                     if (o.pinned) {
@@ -1385,6 +1393,12 @@ doc.gameCanvas.addEventListener("contextmenu", function(e) {
                     Token.openEditMenu(e, psd.tokens[i]);
                 }
             });
+            clickOptions.push({
+                name: found === 1 ? `Delete Token` : `Delete Token (${token.name.length > 10 ? `${token.name.substring(0, 7)}...` : token.name})`,
+                function: function() {
+                    token.delete();
+                }
+            });
             break;
         }
     }
@@ -1449,6 +1463,22 @@ document.getElementById("tokenRemoveReferenceImageButton").addEventListener("cli
     psd.currentEditObject.removingLinked = true;
     document.getElementById("tokenImageFileDropLabel").innerText = "Click to Upload a File";
     document.getElementById("tokenImageFileDrop").value = "";
+});
+
+document.getElementById("tokenImageFileDrop").addEventListener("change", function(e) {
+    if (psd.currentEditObject === null || psd.currentEditObject.type !== "token") return;
+    const token = psd.currentEditObject;
+    if (document.getElementById("tokenImageFileDrop").files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function() {
+            const img = new SavedImage({
+                data: reader.result,
+                name: document.getElementById("tokenImageFileDrop").files[0].name
+            });
+            token.tempImage = img;
+        };
+        reader.readAsDataURL(document.getElementById("tokenImageFileDrop").files[0]);
+    }
 });
 
 // the grid menu remove image button
@@ -1761,6 +1791,33 @@ function update() {
     }
     for (let i = psd.players.length - 1; i >= 0; i--) {
         if (new Date().getTime() - psd.players[i].tick > 1000) psd.players.splice(i, 1);
+    }
+
+    // if we have the token or grid edit menus up, draw the previews for those
+    if (psd.inMenu && psd.currentEditObject !== null) switch (psd.currentEditObject.type) {
+        case "token": {
+            let drawing = document.getElementById("tokenShowcaseView");
+            drawing.width = H/2;
+            drawing.height = H/2;
+            let drawingctx = drawing.getContext("2d");
+            drawingctx.clearRect(0, 0, W/2, H/2);
+            
+            psd.currentEditObject.render(drawingctx, true, {
+                radius: H/6,
+                x: H/4,
+                y: H/4,
+                tokenRadius: sanitize(document.getElementById("tokenRadiusInput").value, "float", {min: 1, max: 1000, default: 20}),
+                lineColor: sanitize(document.getElementById("tokenBorderColorInput").value, "color", {default: "white"}),
+                baseColor: sanitize(document.getElementById("tokenColorInput").value, "color", {default: "red"}),
+                shape: sanitize(document.getElementById("tokenShapeInput").value, "option", {valid: ["circle", "square"], default: "circle"}),
+                lineWidth: sanitize(document.getElementById("tokenBorderRadiusInput").value, "float", {min: 0, max: 1000, default: 5}),
+                linkedImage: psd.currentEditObject.tempImage,
+            });
+            break;
+        }
+        case "grid": {
+            break;
+        }
     }
 
     requestAnimationFrame(update);

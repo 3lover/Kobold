@@ -116,7 +116,6 @@ class Lobby {
             "repeat", 'string', 'int32', 'string', 'string', 'float32', 'float32', 'float32', 'string', 'int8', 'string', 'string', 'float32', 'int32', "int8", 'int32', 'string', 'int32', 'string', "int32", "end",
             "repeat", "string", "int32", "string", "float32", "float32", "float32", "float32", "float32", "string", "string", "float32", "int32", "int32", "string", "int32", "end"
         ]));
-
     }
 
     // adds a token to the server, and syncs it with all players

@@ -155,7 +155,7 @@ class Token {
         const usedShape = extras.shape ?? this.shape;
         const usedLineWidth = extras.lineWidth ?? this.lineWidth;
         const usedR = extras.tokenRadius ?? this.radius;
-        const usedImage = extras.linkedImage ?? this.linkedImage;
+        const usedImage = extras.linkedImage === undefined ? this.linkedImage : extras.linkedImage;
 
         ctx.save();
         if (!this.synced) ctx.globalAlpha = 0.4;
@@ -446,7 +446,10 @@ class Token {
         psd.tokens.push(clone);
         
         this.id = Math.floor(Math.random() * 2**31);
-        if (this.removingLinked) this.linkedImage = null;
+        if (this.removingLinked) {
+            this.linkedImage = null;
+            this.linkedImageAwait = {id: -1, name: ""};
+        }
         this.removingLinked = false;
         this.name = sanitize(document.getElementById("tokenNameInput").value, "string", {max: 32, default: "Unnamed Token"});
         this.description = sanitize(document.getElementById("tokenDescriptionInput").value, "string", {max: 1000, default: ""});
@@ -499,6 +502,7 @@ class Grid {
         this.dim = p.dim ?? {x: 10, y: 10};
         this.position = p.position ?? {x: 0, y: 0};
         this.realDim = p.realDim ?? {x: this.radius * this.dim.x, y: this.radius * this.dim.y};
+        this.offset = p.offset ?? {x: 0, y: 0};
         this.enableGridCount = p.enableGridCount ?? false;
 
         this.shape = p.shape ?? "square";
@@ -509,6 +513,7 @@ class Grid {
         this.linkedImage = p.linkedImage ?? null;
         this.linkedImageAwait = p.linkedImageAwait ?? {id: -1, name: ""};
         this.removingLinked = false;
+        this.tempImage = null;
 
         this.synced = p.synced ?? false;
         this.loaded = p.loaded ?? false;
@@ -573,9 +578,21 @@ class Grid {
     }
 
     render(ctx = mctx, showcase = false, extras = {}) {
-        switch (this.shape) {
-            case "square": this.realDim = {x: this.radius * this.dim.x, y: this.radius * this.dim.y}; break;
-            case "hexagon": this.realDim = {x: this.radius * this.dim.x, y: this.radius * 2/3 * Math.sqrt(3) * (this.dim.y + 0.5)}; break;
+        const usedLineColor = extras.lineColor ?? this.lineColor;
+        const usedDim = extras.dim ?? this.dim;
+        const usedOffset = extras.offset ?? this.offset;
+        const usedLineWidth = extras.lineWidth ?? this.lineWidth;
+        const usedR = extras.gridRadius ?? this.radius;
+        const usedImage = extras.linkedImage === undefined ? this.linkedImage : extras.linkedImage;
+        const usedShape = extras.shape ?? this.shape;
+
+        if (!showcase) switch (usedShape) {
+            case "square": this.realDim = {x: this.radius * usedDim.x, y: this.radius * usedDim.y}; break;
+            case "hexagon": this.realDim = {x: this.radius * usedDim.x, y: this.radius * 2/3 * Math.sqrt(3) * (usedDim.y + 0.5)}; break;
+        }
+        else switch (usedShape) {
+            case "square": this.realDim = {x: extras.radius * 2, y: extras.radius * 2}; break;
+            case "hexagon": this.realDim = {x: extras.radius * 2, y: extras.radius * 2}; break;
         }
         
         ctx.beginPath();
@@ -584,38 +601,37 @@ class Grid {
             (this.position.x - psd.cameraLocation.x) * psd.cameraLocation.s + W/2,
             (this.position.y - psd.cameraLocation.y) * psd.cameraLocation.s + H/2
         );
-        else ctx.translate(extras.radius, extras.radius);
-
+        else ctx.translate(extras.x, extras.y);
         
         let radius = {x: (this.realDim.x / 2) * psd.cameraLocation.s, y: (this.realDim.y / 2) * psd.cameraLocation.s};
         if (showcase) radius = {x: extras.radius, y: extras.radius};
         ctx.translate(-radius.x, -radius.y);
-        ctx.strokeStyle = fetchColor(this.lineColor);
-        if (!showcase) ctx.lineWidth = this.lineWidth * psd.cameraLocation.s;
-        else ctx.lineWidth = extras.radius * this.lineWidth / this.realDim.x;
+        ctx.strokeStyle = fetchColor(usedLineColor);
+        if (!showcase) ctx.lineWidth = usedLineWidth * psd.cameraLocation.s;
+        else ctx.lineWidth = extras.radius * usedLineWidth * 2 / (usedDim.x * usedR);
         
         // draw the linked image, if one exists
         radius = this.realDim.x * psd.cameraLocation.s;
         if (showcase) radius = extras.radius * 2;
-        if (this.linkedImage && this.linkedImage.drawableObject.complete) {
+        if (usedImage && usedImage.drawableObject.complete) {
             ctx.beginPath();
-            let ratio = this.linkedImage.drawableObject.height / this.linkedImage.drawableObject.width;
-            ctx.drawImage(this.linkedImage.drawableObject, 0, 0, radius, radius * ratio);
+            let ratio = usedImage.drawableObject.height / usedImage.drawableObject.width;
+            ctx.drawImage(usedImage.drawableObject, 0, 0, radius, radius * ratio);
         }
         
-        switch (this.shape) {
+        switch (usedShape) {
             case "square": {
-                radius = this.radius;
-                if (showcase) radius = extras.radius * 2 / this.dim.x;
-                for (let i = 0; i < this.dim.x + 1; i++) {
-                    ctx.moveTo(radius * i * psd.cameraLocation.s, 0);
-                    ctx.lineTo(radius * i * psd.cameraLocation.s, radius * this.dim.y * psd.cameraLocation.s);
+                radius = this.radius * psd.cameraLocation.s;
+                if (showcase) radius = extras.radius * 2 / usedDim.x;
+                for (let i = 0; i < usedDim.x + 1; i++) {
+                    ctx.moveTo(radius * i, 0);
+                    ctx.lineTo(radius * i, radius * usedDim.y);
                 }
-                for (let i = 0; i < this.dim.y + 1; i++) {
-                    ctx.moveTo(0, radius * i * psd.cameraLocation.s);
-                    ctx.lineTo(radius * this.dim.x * psd.cameraLocation.s, radius * i * psd.cameraLocation.s);
+                for (let i = 0; i < usedDim.y + 1; i++) {
+                    ctx.moveTo(0, radius * i);
+                    ctx.lineTo(radius * usedDim.x, radius * i);
                 }
-                if (this.lineWidth > 0) ctx.stroke();
+                if (usedLineWidth > 0) ctx.stroke();
                 break;
             }
             case "hexagon": {
@@ -627,19 +643,19 @@ class Grid {
                     }
                     ctx.stroke();
                 }
-                radius = this.radius * 2/3;
-                if (showcase) radius = extras.radius * 2 / this.dim.x * 2/3;
+                radius = this.radius * 2/3 * psd.cameraLocation.s;
+                if (showcase) radius = extras.radius * 2 / usedDim.x * 2/3;
                 // create the grid
-                for (let i = 0; i < this.dim.x; i++) {
+                for (let i = 0; i < usedDim.x; i++) {
                     let polarity = i % 2 === 0 ? -1 : 1;
-                    for (let j = 0; j < this.dim.y; j++) {
+                    for (let j = 0; j < usedDim.y; j++) {
                         let ypos;
                         if (polarity === 1) {
                             ypos = 0;
                         } else {
-                            ypos = radius * Math.sqrt(3)/2 * psd.cameraLocation.s;
+                            ypos = radius * Math.sqrt(3)/2;
                         }
-                        renderHex(radius * (i + 0.5) * 3/2 * psd.cameraLocation.s, radius * Math.sqrt(3) * (j + 0.5) * psd.cameraLocation.s + ypos, radius * psd.cameraLocation.s);
+                        renderHex(radius * (i + 0.5) * 3/2, radius * Math.sqrt(3) * (j + 0.5) + ypos, radius);
                     }
                 }
                 break;
@@ -690,7 +706,7 @@ class Grid {
             this.lineWidth === sanitize(document.getElementById("gridLineWidthInput").value, "float", {min: 0, max: 1000, default: 2}) &&
             this.lineColor === sanitize(document.getElementById("gridLineColorInput").value, "color", {default: "white"}) &&
             this.zIndex === sanitize(document.getElementById("gridZIndexInput").value, "float", {min: -1000, max: 1000, default: 0}) &&
-            this.enableGridCount === sanitize(document.getElementById("gridEnableCountInput").value, "option", {valid: ["0", "1"], default: "0"}) &&
+            this.enableGridCount === (sanitize(document.getElementById("gridEnableCountInput").value, "option", {valid: ["0", "1"], default: "0"}) === "1") &&
             this.shape === sanitize(document.getElementById("gridShapeInput").value, "option", {valid: ["hexagon", "square"], default: "square"}) &&
             document.getElementById("gridImageFileDrop").files.length <= 0 &&
             !this.removingLinked
@@ -701,8 +717,10 @@ class Grid {
         psd.grids.push(clone);
         
         this.id = Math.floor(Math.random() * 2**31);
-        if (this.removingLinked) this.linkedImage = null;
-        this.removingLinked = false;
+        if (this.removingLinked) {
+            this.linkedImage = null;
+            this.linkedImageAwait = {id: -1, name: ""};
+        }
         this.name = sanitize(document.getElementById("gridNameInput").value, "string", {max: 32, default: "Unnamed Grid"});
         this.radius = sanitize(document.getElementById("gridRadiusInput").value, "float", {min: 1, max: 1000, default: 50});
         this.dim.x = sanitize(document.getElementById("gridXDimInput").value, "float", {min: 1, max: 1000, default: 10});
@@ -717,7 +735,7 @@ class Grid {
 
         // wait until our image loads if we have one, otherwise just update it now
         const grid = this;
-        if (document.getElementById("gridImageFileDrop").files.length > 0) {
+        if (!this.removingLinked && document.getElementById("gridImageFileDrop").files.length > 0) {
             const reader = new FileReader();
             reader.onload = function() {
                 const img = new SavedImage({
@@ -734,6 +752,7 @@ class Grid {
         else grid.sendGrid(clone.id);
 
         psd.unsavedChange = true;
+        this.removingLinked = false;
     }
 
     // opens the grid edit menu
@@ -1481,6 +1500,22 @@ document.getElementById("tokenImageFileDrop").addEventListener("change", functio
     }
 });
 
+document.getElementById("gridImageFileDrop").addEventListener("change", function(e) {
+    if (psd.currentEditObject === null || psd.currentEditObject.type !== "grid") return;
+    const grid = psd.currentEditObject;
+    if (document.getElementById("gridImageFileDrop").files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function() {
+            const img = new SavedImage({
+                data: reader.result,
+                name: document.getElementById("gridImageFileDrop").files[0].name
+            });
+            grid.tempImage = img;
+        };
+        reader.readAsDataURL(document.getElementById("gridImageFileDrop").files[0]);
+    }
+});
+
 // the grid menu remove image button
 document.getElementById("gridRemoveReferenceImageButton").addEventListener("click", function(e) {
     if (psd.currentEditObject === null || psd.currentEditObject.type !== "grid") return;
@@ -1751,6 +1786,7 @@ function update() {
             if (image.type !== "image") continue;
             if (image.id !== grid.linkedImageAwait.id || image.name !== grid.linkedImageAwait.name) continue;
             grid.linkedImage = image;
+            console.log("fuck you bitch")
         }
     }
 
@@ -1811,11 +1847,31 @@ function update() {
                 baseColor: sanitize(document.getElementById("tokenColorInput").value, "color", {default: "red"}),
                 shape: sanitize(document.getElementById("tokenShapeInput").value, "option", {valid: ["circle", "square"], default: "circle"}),
                 lineWidth: sanitize(document.getElementById("tokenBorderRadiusInput").value, "float", {min: 0, max: 1000, default: 5}),
-                linkedImage: psd.currentEditObject.tempImage,
+                linkedImage: psd.currentEditObject.removingLinked ? null : psd.currentEditObject.tempImage,
             });
             break;
         }
         case "grid": {
+            let drawing = document.getElementById("gridShowcaseView");
+            drawing.width = H/2;
+            drawing.height = H/2;
+            let drawingctx = drawing.getContext("2d");
+            drawingctx.clearRect(0, 0, W/2, H/2);
+            psd.currentEditObject.render(drawingctx, true, {
+                radius: H/6,
+                x: H/4,
+                y: H/4,
+                dim: {
+                    x: sanitize(document.getElementById("gridXDimInput").value, "float", {min: 1, max: 1000, default: 10}),
+                    y: sanitize(document.getElementById("gridYDimInput").value, "float", {min: 1, max: 1000, default: 10}),
+                },
+                offset: {x: 0, y: 0},
+                gridRadius: sanitize(document.getElementById("gridRadiusInput").value, "float", {min: 1, max: 1000, default: 50}),
+                lineColor: sanitize(document.getElementById("gridLineColorInput").value, "color", {default: "white"}),
+                shape: sanitize(document.getElementById("gridShapeInput").value, "option", {valid: ["square", "hexagon"], default: "square"}),
+                lineWidth: sanitize(document.getElementById("gridLineWidthInput").value, "float", {min: 0, max: 1000, default: 5}),
+                linkedImage: psd.currentEditObject.removingLinked ? null : psd.currentEditObject.tempImage,
+            });
             break;
         }
     }
